@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modular C&C Helicopter Game</title>
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- Import map to let the browser understand Three.js modules easily -->
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+        }
+      }
+    </script>
+</head>
+<body>
+    <div id="ui">
+        <h2>SATELLITE FEED: SECTOR 7</h2>
+        <p>Environment Loaded (Modular Mode)</p>
+    </div>
+
+    <!-- This loads your main game controller or environment module -->
+    <script type="module" src="environment.js"></script>
+</body>
+</html>
