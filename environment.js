@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Helicopter } from './helicopter.js'; // Imports your separate helicopter file!
+import { Helicopter } from './helicopter.js';
 
 // 1. Scene setup with atmospheric haze background
 const scene = new THREE.Scene();
@@ -9,7 +9,6 @@ scene.fog = new THREE.FogExp2(0x061526, 0.015);
 // 2. Isometric Camera Setup
 const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.set(0, 30, 25);
-camera.lookAt(0, 0, 0);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -90,9 +89,11 @@ function animate() {
     // Update helicopter movement and rotor spinning
     playerChopper.update();
 
-    // Lock camera and infinite ocean tile to the helicopter's position
+    // Lock camera, ocean tile, and tracking to the helicopter's position
     camera.position.x = playerChopper.group.position.x;
     camera.position.z = playerChopper.group.position.z + 25; 
+    camera.position.y = 30;
+    camera.lookAt(playerChopper.group.position);
     
     water.position.x = playerChopper.group.position.x;
     water.position.z = playerChopper.group.position.z;
