@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { Helicopter } from './helicopter.js'; // Imports your separate helicopter file!
 
 // 1. Scene setup with atmospheric haze background
 const scene = new THREE.Scene();
@@ -52,13 +53,12 @@ oceanTexture.wrapS = THREE.RepeatWrapping;
 oceanTexture.wrapT = THREE.RepeatWrapping;
 oceanTexture.repeat.set(10, 10);
 
-// 5. Create High-Detail Ocean Plane for Waves
+// 5. Create Ocean Plane for Waves
 const waterGeometry = new THREE.PlaneGeometry(300, 300, 40, 40);
 const waterMaterial = new THREE.MeshStandardMaterial({ 
     map: oceanTexture,
     roughness: 0.25,
-    metalness: 0.1,
-    flatShading: false
+    metalness: 0.1
 });
 const water = new THREE.Mesh(waterGeometry, waterMaterial);
 water.rotation.x = -Math.PI / 2;
@@ -69,7 +69,10 @@ scene.add(water);
 const positionAttribute = waterGeometry.attributes.position;
 let clock = new THREE.Clock();
 
-// 6. Animation Loop (Waves & Rendering)
+// 6. Spawn the Helicopter from our separate module!
+const playerChopper = new Helicopter(scene);
+
+// 7. Main Game Loop (Waves, Helicopter Control, Camera Tracking)
 function animate() {
     requestAnimationFrame(animate);
 
@@ -83,6 +86,16 @@ function animate() {
         positionAttribute.setZ(i, waveZ);
     }
     positionAttribute.needsUpdate = true;
+
+    // Update helicopter movement and rotor spinning
+    playerChopper.update();
+
+    // Lock camera and infinite ocean tile to the helicopter's position
+    camera.position.x = playerChopper.group.position.x;
+    camera.position.z = playerChopper.group.position.z + 25; 
+    
+    water.position.x = playerChopper.group.position.x;
+    water.position.z = playerChopper.group.position.z;
 
     renderer.render(scene, camera);
 }
