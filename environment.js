@@ -16,6 +16,10 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
+// AUTO-FOCUS FIX: Make the game canvas capture keyboard inputs instantly
+renderer.domElement.setAttribute('tabindex', '0');
+renderer.domElement.focus();
+
 // 3. Cinematic Lighting
 const ambientLight = new THREE.AmbientLight(0x1a3a5c, 1.2);
 scene.add(ambientLight);
