@@ -3,26 +3,115 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Modular C&C Helicopter Game</title>
+    <title>Isometric Offshore Helicopter Simulator - 3D Realistic Islands</title>
     <link rel="stylesheet" href="style.css">
-    
-    <!-- Import map to let the browser understand Three.js modules easily -->
-    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
-    <script type="importmap">
-      {
-        "imports": {
-          "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
-        }
-      }
-    </script>
 </head>
 <body>
-    <div id="ui">
-        <h2>SATELLITE FEED: SECTOR 7</h2>
-        <p>Environment Loaded (Modular Mode)</p>
-    </div>
 
-    <!-- This loads your main game controller or environment module -->
-    <script type="module" src="environment.js"></script>
+<div id="game-container">
+    <div id="canvas-wrapper">
+        <canvas id="gameCanvas" oncontextmenu="return false;"></canvas>
+        <div id="notification-banner">3D Realistic Island Model Active. Left/Right Click Map for RTS Movement or use Arrow Keys. Press K for Kneeboard.</div>
+        
+        <div id="instrument-stack">
+            <div class="instrument-box" id="battery-unit">
+                <div class="radio-label">BATTERY</div>
+                <div class="toggle-track" id="battery-toggle-track" onclick="toggleBatterySwitch()">
+                    <div class="toggle-thumb down" id="battery-toggle-thumb"></div>
+                </div>
+                <div class="radio-hint" id="battery-status-hint">OFF</div>
+            </div>
+            <div class="instrument-box" id="engine-unit">
+                <div class="radio-label">ENGINE</div>
+                <div class="toggle-track" id="engine-toggle-track" onclick="toggleEngineSwitch()">
+                    <div class="toggle-thumb down" id="engine-toggle-thumb"></div>
+                </div>
+                <div class="radio-hint" id="engine-status-hint">SHUTDOWN</div>
+            </div>
+            <div class="instrument-box" id="gear-unit">
+                <div class="radio-label">GEAR LEVER</div>
+                <div class="toggle-track" id="gear-toggle-track" onclick="toggleGearSwitch()">
+                    <div class="toggle-thumb gear-down" id="gear-toggle-thumb"></div>
+                </div>
+                <div class="gear-lights-container">
+                    <div class="gear-light green" id="gear-light-l"></div>
+                    <div class="gear-light green" id="gear-light-n"></div>
+                    <div class="gear-light green" id="gear-light-r"></div>
+                </div>
+            </div>
+            <div class="instrument-box" id="radio-unit">
+                <div class="radio-label">COM RADIO</div>
+                <div class="radio-display" id="radio-freq-display">210 kHz</div>
+                <div class="radio-knob" id="radio-knob"></div>
+                <div class="radio-hint">Scroll to Tune</div>
+            </div>
+            <div class="instrument-box" id="adf-unit">
+                <div class="radio-label">ADF BEARING</div>
+                <div style="position: relative; width: 56px; height: 56px; margin: 2px auto; background: #020617; border-radius: 50%; border: 1px solid #1e293b; display: flex; align-items: center; justify-content: center;">
+                    <div style="position: absolute; width: 46px; height: 46px; border: 1px dashed #334155; border-radius: 50%;"></div>
+                    <div style="position: absolute; top: 2px; font-size: 7px; color: #94a3b8; font-family: monospace;">N</div>
+                    <div id="adf-needle" style="position: absolute; width: 100%; height: 100%; transform: rotate(0deg); transition: transform 0.05s linear;">
+                        <div style="position: absolute; top: 6px; left: 26px; width: 3px; height: 22px; background: #38bdf8; clip-path: polygon(50% 0%, 100% 100%, 0% 100%);"></div>
+                    </div>
+                    <div style="width: 4px; height: 4px; background: #f59e0b; border-radius: 50%; position: absolute; z-index: 2;"></div>
+                </div>
+                <div class="radio-hint">NDB HOMING</div>
+            </div>
+            <div class="instrument-box" id="asi-unit">
+                <div class="radio-label">AIRSPEED</div>
+                <svg width="60" height="60" viewBox="0 0 100 100" style="margin: 1px auto; display: block;">
+                    <circle cx="50" cy="50" r="48" fill="#0b0f19" stroke="#334155" stroke-width="3"/>
+                    <text x="50" y="18" fill="#94a3b8" font-size="9" font-family="monospace" text-anchor="middle">0</text>
+                    <text x="78" y="28" fill="#94a3b8" font-size="8" font-family="monospace" text-anchor="middle">20</text>
+                    <text x="88" y="55" fill="#94a3b8" font-size="8" font-family="monospace" text-anchor="middle">40</text>
+                    <text x="78" y="82" fill="#94a3b8" font-size="8" font-family="monospace" text-anchor="middle">60</text>
+                    <text x="50" y="90" fill="#94a3b8" font-size="8" font-family="monospace" text-anchor="middle">80</text>
+                    <text x="22" y="82" fill="#94a3b8" font-size="8" font-family="monospace" text-anchor="middle">100</text>
+                    <g id="asi-needle" transform="rotate(0, 50, 50)" style="transition: transform 0.05s linear;">
+                        <polygon points="50,22 48,55 52,55" fill="#f87171"/>
+                    </g>
+                </svg>
+                <div class="radio-hint"><span id="asi-val">0</span> KTS</div>
+            </div>
+            <div class="instrument-box" id="alt-unit">
+                <div class="radio-label">ALTIMETER</div>
+                <svg width="60" height="60" viewBox="0 0 100 100" style="margin: 1px auto; display: block;">
+                    <circle cx="50" cy="50" r="48" fill="#0b0f19" stroke="#334155" stroke-width="3"/>
+                    <text x="50" y="17" fill="#e2e8f0" font-size="9" font-weight="bold" font-family="monospace" text-anchor="middle">0</text>
+                    <text x="74" y="26" fill="#94a3b8" font-size="8" font-family="monospace" text-anchor="middle">1</text>
+                    <text x="85" y="48" fill="#94a3b8" font-size="8" font-family="monospace" text-anchor="middle">2</text>
+                    <text x="74" y="74" fill="#94a3b8" font-size="8" font-family="monospace" text-anchor="middle">3</text>
+                    <text x="50" y="86" fill="#94a3b8" font-size="8" font-family="monospace" text-anchor="middle">4</text>
+                    <text x="26" y="74" fill="#94a3b8" font-size="8" font-family="monospace" text-anchor="middle">5</text>
+                    <g id="alt-needle-100" transform="rotate(0, 50, 50)" style="transition: transform 0.05s linear;">
+                        <polygon points="50,20 48,54 52,54" fill="#38bdf8"/>
+                    </g>
+                </svg>
+                <div class="radio-hint"><span id="alt-num">0</span> FT MSL</div>
+            </div>
+            <div class="instrument-box" id="rpm-unit">
+                <div class="radio-label">ROTOR RPM</div>
+                <svg width="60" height="60" viewBox="0 0 100 100" style="margin: 1px auto; display: block;">
+                    <circle cx="50" cy="50" r="48" fill="#0b0f19" stroke="#334155" stroke-width="3"/>
+                    <path d="M 68,22 A 32,32 0 1,1 22,50" fill="none" stroke="#10b981" stroke-width="4" stroke-linecap="round" opacity="0.8"/>
+                    <g id="rpm-needle" transform="rotate(0, 50, 50)" style="transition: transform 0.05s linear;">
+                        <polygon points="50,22 48.5,55 51.5,55" fill="#10b981"/>
+                    </g>
+                </svg>
+                <div class="radio-hint"><span id="rpm-text">0</span>% RPM</div>
+            </div>
+            <div class="instrument-box" id="fuel-unit">
+                <div class="radio-label">FUEL GAUGE</div>
+                <div style="position: relative; width: 18px; height: 56px; margin: 2px auto; background: #020617; border: 1px solid #334155; border-radius: 3px; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end;">
+                    <div id="fuel-bar-fill" style="width: 100%; height: 100%; background: linear-gradient(to top, #ef4444 0%, #f59e0b 30%, #10b981 100%); transition: height 0.1s linear;"></div>
+                </div>
+                <div class="radio-hint" id="fuel-bar-val">100%</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="environment.js"></script>
+<script src="helicopter.js"></script>
 </body>
 </html>

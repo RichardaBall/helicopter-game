@@ -1,114 +1,142 @@
-import * as THREE from 'three';
-import { Helicopter } from './helicopter.js';
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
 
-// 1. Scene setup with atmospheric haze background
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x061526);
-scene.fog = new THREE.FogExp2(0x061526, 0.015);
+function resizeCanvas() {
+    canvas.width = canvas.parentElement.clientWidth;
+    canvas.height = canvas.parentElement.clientHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
 
-// 2. Isometric Camera Setup
-const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 30, 25);
-
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-document.body.appendChild(renderer.domElement);
-
-// AUTO-FOCUS FIX: Make the game canvas capture keyboard inputs instantly
-renderer.domElement.setAttribute('tabindex', '0');
-renderer.domElement.focus();
-
-// 3. Cinematic Lighting
-const ambientLight = new THREE.AmbientLight(0x1a3a5c, 1.2);
-scene.add(ambientLight);
-
-const sunLight = new THREE.DirectionalLight(0xfff5e6, 1.5);
-sunLight.position.set(30, 50, 30);
-sunLight.castShadow = true;
-scene.add(sunLight);
-
-// 4. Generate Procedural Satellite Water Texture
-const canvasTexture = document.createElement('canvas');
-canvasTexture.width = 1024;
-canvasTexture.height = 1024;
-const ctx = canvasTexture.getContext('2d');
-
-ctx.fillStyle = '#0a3663';
-ctx.fillRect(0, 0, 1024, 1024);
-
-for (let i = 0; i < 400; i++) {
-    let x = Math.random() * 1024;
-    let y = Math.random() * 1024;
-    let radius = Math.random() * 150 + 50;
-    let gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
-    gradient.addColorStop(0, 'rgba(15, 80, 140, 0.15)');
-    gradient.addColorStop(1, 'rgba(5, 20, 40, 0)');
-    ctx.fillStyle = gradient;
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fill();
+function notify(msg) {
+    document.getElementById('notification-banner').innerText = msg;
 }
 
-const oceanTexture = new THREE.CanvasTexture(canvasTexture);
-oceanTexture.wrapS = THREE.RepeatWrapping;
-oceanTexture.wrapT = THREE.RepeatWrapping;
-oceanTexture.repeat.set(10, 10);
+// --- WORLD DATA ---
+const world = {
+    weather: 'VFR',
+    windDirDeg: 220,
+    windSpeedKts: 18,
+    rainParticles: [],
+    weatherTimer: 0,
+    kneeboardOpen: false,
+    kneeboardTab: 'freq'
+};
 
-// 5. Create Ocean Plane for Waves
-const waterGeometry = new THREE.PlaneGeometry(300, 300, 40, 40);
-const waterMaterial = new THREE.MeshStandardMaterial({ 
-    map: oceanTexture,
-    roughness: 0.25,
-    metalness: 0.1
-});
-const water = new THREE.Mesh(waterGeometry, waterMaterial);
-water.rotation.x = -Math.PI / 2;
-water.receiveShadow = true;
-scene.add(water);
+for (let i = 0; i < 150; i++) {
+    world.rainParticles.push({
+        x: Math.random() * canvas.width * 2,
+        y: Math.random() * canvas.height * 2
+    });
+}
 
-// Save original vertex positions for wave animation
-const positionAttribute = waterGeometry.attributes.position;
-let clock = new THREE.Clock();
+const mainland = { id: 'Island Base', freq: 210, x: 400, y: 3000, radius: 110, padX: 425, padY: 3000 };
+const randomIslands = [
+    { x: 1500, y: 1200, radius: 120 }, { x: 4200, y: 1800, radius: 105 }, 
+    { x: 2800, y: 3800, radius: 140 }, { x: 1200, y: 4500, radius: 90 }, { x: 4800, y: 5200, radius: 150 }
+];
 
-// 6. Spawn the Helicopter from our separate module!
-const playerChopper = new Helicopter(scene);
+const rigs = [
+    { id: 'Alpha Rig', freq: 310, x: 3200, y: 1000, padX: 3200, padY: 1000, paxWaiting: 0 },
+    { id: 'Bravo Platform', freq: 350, x: 5000, y: 3500, padX: 5000, padY: 3500, paxWaiting: 0 },
+    { id: 'Charlie Deep', freq: 410, x: 2200, y: 5000, padX: 2200, padY: 5000, paxWaiting: 0 },
+    { id: 'Delta Rig', freq: 430, x: 1200, y: 2000, padX: 1200, padY: 2000, paxWaiting: 0 },
+    { id: 'Echo Complex', freq: 440, x: 4000, y: 800, padX: 4000, padY: 800, paxWaiting: 0 }
+];
 
-// 7. Main Game Loop (Waves, Helicopter Control, Camera Tracking)
-function animate() {
-    requestAnimationFrame(animate);
+const windFarms = [
+    { id: 'Neptune Offshore Wind Farm', height: 180, turbines: [{ x: 2200, y: 1800 }, { x: 2280, y: 1800 }, { x: 2360, y: 1800 }, { x: 2200, y: 1880 }, { x: 2280, y: 1880 }] },
+    { id: 'Triton Shoals Wind Array', height: 180, turbines: [{ x: 3800, y: 4200 }, { x: 3890, y: 4200 }, { x: 3800, y: 4290 }] }
+];
 
-    const elapsedTime = clock.getElapsedTime();
+// --- RTS ISOMETRIC MATH ---
+function worldToScreen(wx, wy, wz = 0) {
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    const rx = wx - heli.x;
+    const ry = wy - heli.y;
+    const sx = (rx - ry);
+    const sy = (rx + ry) / 2;
+    return { x: cx + sx, y: cy + sy - wz };
+}
 
-    // Animate waves
-    for (let i = 0; i < positionAttribute.count; i++) {
-        const x = positionAttribute.getX(i);
-        const y = positionAttribute.getY(i);
-        const waveZ = Math.sin(x * 0.05 + elapsedTime * 2) * Math.cos(y * 0.05 + elapsedTime * 1.5) * 0.6;
-        positionAttribute.setZ(i, waveZ);
-    }
-    positionAttribute.needsUpdate = true;
+function screenToWorld(sx, sy) {
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    const dx = sx - cx;
+    const dy = sy - cy;
+    const wx = (dx / 2) + dy + heli.x;
+    const wy = dy - (dx / 2) + heli.y;
+    return { x: wx, y: wy };
+}
 
-    // Update helicopter movement and rotor spinning
-    playerChopper.update();
-
-    // Lock camera, ocean tile, and tracking to the helicopter's position
-    camera.position.x = playerChopper.group.position.x;
-    camera.position.z = playerChopper.group.position.z + 25; 
-    camera.position.y = 30;
-    camera.lookAt(playerChopper.group.position);
+// --- ISOMETRIC RENDERING HELPERS ---
+function drawIsoBox(wx, wy, wz, w, d, h, cTop, cLeft, cRight) {
+    const p1 = worldToScreen(wx + w/2, wy - d/2, wz);
+    const p2 = worldToScreen(wx + w/2, wy + d/2, wz);
+    const p3 = worldToScreen(wx - w/2, wy + d/2, wz);
     
-    water.position.x = playerChopper.group.position.x;
-    water.position.z = playerChopper.group.position.z;
+    const t0 = worldToScreen(wx - w/2, wy - d/2, wz + h);
+    const t1 = worldToScreen(wx + w/2, wy - d/2, wz + h);
+    const t2 = worldToScreen(wx + w/2, wy + d/2, wz + h);
+    const t3 = worldToScreen(wx - w/2, wy + d/2, wz + h);
 
-    renderer.render(scene, camera);
+    ctx.fillStyle = cLeft; ctx.beginPath(); ctx.moveTo(p3.x, p3.y); ctx.lineTo(p2.x, p2.y); ctx.lineTo(t2.x, t2.y); ctx.lineTo(t3.x, t3.y); ctx.fill();
+    ctx.fillStyle = cRight; ctx.beginPath(); ctx.moveTo(p2.x, p2.y); ctx.lineTo(p1.x, p1.y); ctx.lineTo(t1.x, t1.y); ctx.lineTo(t2.x, t2.y); ctx.fill();
+    ctx.fillStyle = cTop; ctx.beginPath(); ctx.moveTo(t0.x, t0.y); ctx.lineTo(t1.x, t1.y); ctx.lineTo(t2.x, t2.y); ctx.lineTo(t3.x, t3.y); ctx.fill();
 }
-animate();
 
-// Responsive window resizing
-window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-});
+function drawWindsock(wx, wy, wz) {
+    const pt = worldToScreen(wx, wy, wz);
+    ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(pt.x, pt.y); ctx.lineTo(pt.x, pt.y - 25); ctx.stroke();
+    
+    const windRad = world.windDirDeg * Math.PI / 180;
+    const endX = wx + Math.cos(windRad) * 20;
+    const endY = wy + Math.sin(windRad) * 20;
+    const endPt = worldToScreen(endX, endY, wz + 22);
+    
+    ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(pt.x, pt.y - 22); ctx.lineTo(endPt.x, endPt.y); ctx.stroke();
+    ctx.lineCap = 'butt';
+}
+
+function draw3DIsland(wx, wy, radius) {
+    const steps = 5;
+    const heightSteps = [0, 8, 16, 24, 30];
+    const colorsTop = ['#0891b2', '#ca8a04', '#15803d', '#166534', '#14532d'];
+    const colorsCliff = ['#0e7490', '#a16207', '#3f3f46', '#27272a', '#18181b'];
+
+    for (let i = steps - 1; i >= 0; i--) {
+        const currentRadius = radius * (1.0 - (i * 0.15));
+        const currentHeight = heightSteps[i];
+        const pt = worldToScreen(wx, wy, currentHeight);
+        const rx = currentRadius * 1.5;
+        const ry = currentRadius * 0.75;
+
+        if (i > 0) {
+            const prevHeight = heightSteps[i-1];
+            const ptBase = worldToScreen(wx, wy, prevHeight);
+            ctx.fillStyle = colorsCliff[i];
+            ctx.beginPath();
+            ctx.ellipse(pt.x, pt.y, rx, ry, 0, 0, Math.PI);
+            ctx.ellipse(ptBase.x, ptBase.y, rx, ry, 0, Math.PI, 0, true);
+            ctx.fill();
+        }
+
+        ctx.fillStyle = colorsTop[i];
+        ctx.beginPath();
+        ctx.ellipse(pt.x, pt.y, rx, ry, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (i >= 2) {
+            ctx.fillStyle = '#14381f';
+            for (let t = 0; t < 3; t++) {
+                const angle = t * ((Math.PI * 2) / 3) + (i * 0.5);
+                const tx = pt.x + Math.cos(angle) * (rx * 0.45);
+                const ty = pt.y + Math.sin(angle) * (ry * 0.45);
+                ctx.beginPath(); ctx.arc(tx, ty, 6, 0, Math.PI * 2); ctx.fill();
+            }
+        }
+    }
+}
