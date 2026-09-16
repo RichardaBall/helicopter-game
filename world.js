@@ -277,6 +277,11 @@ let heliLightsGroup;
 const keys = {};
 
 window.addEventListener('keydown', (e) => {
+    // Prevent default browser shortcuts like Ctrl+W closing the tab
+    if (e.code === 'KeyW' || e.code === 'KeyS' || e.code === 'KeyA' || e.code === 'KeyD' || e.code === 'ControlLeft' || e.code === 'ControlRight') {
+        e.preventDefault();
+    }
+
     keys[e.code] = true;
     if (!helicopterPlayer) return;
 
@@ -417,7 +422,6 @@ function animate() {
 
         // --- UPDATE HELICOPTER LIGHTS ---
         if (redLight && greenLight && strobeLight && landingLight) {
-            // Nav lights and strobe come on automatically when electrical system [Q] is active
             redLight.intensity = electricalOn ? 2.5 : 0.0;
             greenLight.intensity = electricalOn ? 2.5 : 0.0;
             redBulb.visible = electricalOn;
@@ -427,7 +431,6 @@ function animate() {
             strobeLight.intensity = isStrobeActive ? 8.0 : 0.0;
             strobeBulb.visible = isStrobeActive;
 
-            // Landing light controlled separately by [L], dependent on electrical system and gear
             landingLight.intensity = (electricalOn && landingLightOn) ? 18.0 : 0.0;
         }
         // ---------------------------------
