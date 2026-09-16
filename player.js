@@ -23,7 +23,7 @@ export class HelicopterPlayer {
         this.isElectricalOn = false; 
         this.qKeyWasPressed = false; 
 
-        this.isFuelPumpOn = true;   // Initialized to true so engines can start normally
+        this.isFuelPumpOn = false;   // Corrected to false so pressing 'F' turns it ON
         this.fKeyWasPressed = false; 
         this.fuelStarvationTimer = 0.0; 
 
@@ -148,7 +148,7 @@ export class HelicopterPlayer {
         console.log(`Landing Gear ${this.isGearUp ? 'Retracting' : 'Deploying'}`);
     }
 
-    update(delta, keys) {
+    update(delta, keys, windVector) {
         if (this.mixer) this.mixer.update(delta);
 
         if (keys && keys['KeyQ']) {
@@ -268,6 +268,13 @@ export class HelicopterPlayer {
         }
         if (Math.abs(this.currentTurnSpeed) > 0.001) {
             this.model.rotation.y += this.currentTurnSpeed * delta;
+        }
+
+        // Apply Dynamic Wind Drift When Airborne
+        if (windVector && !isOnGround) {
+            const windImpactFactor = (this.baselineMassKg / currentMass) * delta;
+            this.model.position.x += windVector.x * windImpactFactor * 1.5;
+            this.model.position.z += windVector.z * windImpactFactor * 1.5;
         }
 
         // Apply vertical position safely ensuring it doesn't drop below ground level
