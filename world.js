@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Water } from 'three/addons/objects/Water.js';
-import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { HelicopterPlayer } from './player.js';
 
 // Scene, Camera, and Renderer setup
@@ -15,22 +14,6 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// --- TRANSFORM CONTROLS FOR LIGHT POSITIONING ---
-const transformControls = new TransformControls(camera, renderer.domElement);
-scene.add(transformControls);
-
-transformControls.addEventListener('dragging-changed', (event) => {
-    // Disable camera movement while dragging gizmos if needed
-});
-
-transformControls.addEventListener('change', () => {
-    if (transformControls.object) {
-        const pos = transformControls.object.position;
-        console.log(`Active Light Position -> x: ${pos.x.toFixed(2)}, y: ${pos.y.toFixed(2)}, z: ${pos.z.toFixed(2)}`);
-    }
-});
-// ----------------------------------------------
-
 // Lighting
 const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
 scene.add(ambientLight);
@@ -38,11 +21,6 @@ scene.add(ambientLight);
 const dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
 dirLight.position.set(30, 50, 30);
 scene.add(dirLight);
-
-// --- SCREEN CORNER COORDINATE SYSTEM GIZMO ---
-const axesHelper = new THREE.AxesHelper(1.2);
-scene.add(axesHelper);
-// ---------------------------------------------
 
 // --- PHOTOREALISTIC WATER SETUP ---
 const waterGeometry = new THREE.PlaneGeometry(2000, 2000);
@@ -308,7 +286,6 @@ window.addEventListener('keydown', (e) => {
     }
     if (e.code === 'KeyF') {
         fuelOn = !fuelOn;
-        // Pass fuel state to player if player handles it internally, or manage it here
         if (helicopterPlayer.setFuelSystem) {
             helicopterPlayer.setFuelSystem(fuelOn);
         }
@@ -325,29 +302,6 @@ window.addEventListener('keydown', (e) => {
         landingLightOn = !landingLightOn;
         console.log("Landing Light: " + (landingLightOn ? "ON" : "OFF"));
     }
-
-    // --- CONTROLS TO SELECT LIGHTS FOR GIZMO ---
-    if (e.code === 'Digit1' && redLight) {
-        transformControls.attach(redLight);
-        console.log("Attached TransformControls to: RED LIGHT [1]");
-    }
-    if (e.code === 'Digit2' && greenLight) {
-        transformControls.attach(greenLight);
-        console.log("Attached TransformControls to: GREEN LIGHT [2]");
-    }
-    if (e.code === 'Digit3' && strobeLight) {
-        transformControls.attach(strobeLight);
-        console.log("Attached TransformControls to: STROBE LIGHT [3]");
-    }
-    if (e.code === 'Digit4' && landingLight) {
-        transformControls.attach(landingLight);
-        console.log("Attached TransformControls to: LANDING LIGHT [4]");
-    }
-    if (e.code === 'Escape') {
-        transformControls.detach();
-        console.log("Detached TransformControls");
-    }
-    // ------------------------------------------
 });
 
 window.addEventListener('keyup', (e) => {
@@ -461,11 +415,6 @@ function animate() {
         water.position.x = helicopterPlayer.model.position.x;
         water.position.z = helicopterPlayer.model.position.z;
 
-        // Sync visual bulb positions with point light positions if dragged
-        if (redLight && redBulb) redBulb.position.copy(redLight.position);
-        if (greenLight && greenBulb) greenBulb.position.copy(greenLight.position);
-        if (strobeLight && strobeBulb) strobeBulb.position.copy(strobeLight.position);
-
         // --- UPDATE HELICOPTER LIGHTS ---
         if (redLight && greenLight && strobeLight && landingLight) {
             // Nav lights and strobe come on automatically when electrical system [Q] is active
@@ -498,18 +447,6 @@ function animate() {
         camera.position.lerp(targetCameraPos, 0.1);
         camera.lookAt(helicopterPlayer.model.position);
     }
-
-    // --- LOCK AXES GIZMO TO BOTTOM-LEFT OF CAMERA VIEW ---
-    const camDir = new THREE.Vector3();
-    camera.getWorldDirection(camDir);
-    const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
-    const camUp = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
-
-    axesHelper.position.copy(camera.position)
-        .addScaledVector(camDir, 3.5)
-        .addScaledVector(camRight, -1.1)
-        .addScaledVector(camUp, -0.8);
-    // ---------------------------------------------------
 
     renderer.render(scene, camera);
 }
