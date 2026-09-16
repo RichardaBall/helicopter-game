@@ -6,7 +6,6 @@ export class HelicopterPlayer {
         this.mixer = mixer;
         this.actions = {};
         
-        // Prevent browser tab from closing on Ctrl+W
         window.addEventListener('keydown', (event) => {
             if (event.ctrlKey && event.code === 'KeyW') {
                 event.preventDefault();
@@ -23,7 +22,7 @@ export class HelicopterPlayer {
         this.isElectricalOn = false; 
         this.qKeyWasPressed = false; 
 
-        this.isFuelPumpOn = false;   // Corrected to false so pressing 'F' turns it ON
+        this.isFuelPumpOn = false;   
         this.fKeyWasPressed = false; 
         this.fuelStarvationTimer = 0.0; 
 
@@ -40,11 +39,15 @@ export class HelicopterPlayer {
         this.passengerAvgKg = 85;     
         this.baselineMassKg = 6000; 
 
-        this.maxMoveSpeed = 22.0;       
-        this.maxTaxiSpeed = 2.25;       
+        // --- Fuel Burn Rate Configuration (5 minutes full to empty) ---
+        this.maxFuelBurnRatePerSec = 800.0 / 300.0; 
+
+        // --- Real-world AW189 scaling (~145-150 kts max cruise = ~75 m/s) ---
+        this.maxMoveSpeed = 75.0;       
+        this.maxTaxiSpeed = 3.0;        
         this.maxTurnSpeed = 1.5;        
         this.maxTaxiTurnSpeed = 0.75;   
-        this.maxAltitudeSpeed = 8.0;    
+        this.maxAltitudeSpeed = 12.0;    
 
         this.currentMoveSpeed = 0.0;
         this.currentTurnSpeed = 0.0;
@@ -70,7 +73,6 @@ export class HelicopterPlayer {
         if (distanceFromHelipad < 12.0) {
             return this.helipadAltitude + this.landingHeightOffset;
         }
-        
         return this.seaLevel;
     }
 
@@ -148,7 +150,7 @@ export class HelicopterPlayer {
         console.log(`Landing Gear ${this.isGearUp ? 'Retracting' : 'Deploying'}`);
     }
 
-    update(delta, keys, windVector) {
+    update(delta, keys, weatherData) {
         if (this.mixer) this.mixer.update(delta);
 
         if (keys && keys['KeyQ']) {
@@ -159,27 +161,57 @@ export class HelicopterPlayer {
             if (!this.fKeyWasPressed) { this.toggleFuelPump(); this.fKeyWasPressed = true; }
         } else { this.fKeyWasPressed = false; }
 
-        // --- 10-Second Fuel Starvation Logic ---
-        if (this.targetEnginePower > 0 && !this.isFuelPumpOn) {
+        // --- Fuel Starvation Check ---
+        if (this.targetEnginePower > 0 && (!this.isFuelPumpOn || this.fuelKg <= 0)) {
             this.fuelStarvationTimer += delta;
-            if (this.fuelStarvationTimer >= 10.0 && this.targetEnginePower > 0) {
+            if (this.fuelStarvationTimer >= 5.0) { 
                 this.targetEnginePower = 0.0;
                 this.isEngineRunning = false;
-                console.log("AW189: Engines shutdown due to fuel starvation (10 seconds elapsed).");
+                console.log("AW189: Engines spooling down due to fuel starvation / pump off.");
             }
+        } else if (this.isFuelPumpOn && this.fuelKg > 0 && this.isEngineRunning) {
+            this.fuelStarvationTimer = 0.0;
         }
 
         const activeGroundLevel = this.getCurrentGroundLevel();
         const isOnGround = this.model.position.y <= activeGroundLevel + 0.05;
 
-        // --- Complete Stop Upon Impact ---
+        // --- Dynamic Fuel Consumption Logic ---
+        if (this.enginePower > 0.01 && this.fuelKg > 0 && this.isFuelPumpOn) {
+            const currentMass = this.getTotalMass();
+            const massMultiplier = currentMass / this.baselineMassKg;
+
+            let aeroDragMultiplier = 1.0;
+            if (!this.isGearUp && !isOnGround) {
+                aeroDragMultiplier += 1.0; // Higher fuel consumption burn due to gear drag
+            }
+
+            if (weatherData && weatherData.wind && !isOnGround) {
+                const windSpeedMagnitude = weatherData.wind.length();
+                aeroDragMultiplier += (windSpeedMagnitude * 0.05);
+            }
+
+            if (weatherData && weatherData.effects) {
+                aeroDragMultiplier *= weatherData.effects.dragMultiplier;
+            }
+
+            const frameBurn = this.maxFuelBurnRatePerSec * this.enginePower * massMultiplier * aeroDragMultiplier * delta;
+            this.fuelKg = Math.max(0, this.fuelKg - frameBurn);
+
+            if (this.fuelKg <= 0 && this.targetEnginePower > 0) {
+                this.targetEnginePower = 0.0;
+                this.isEngineRunning = false;
+                console.log("AW189: Engines shutdown - Out of Fuel!");
+            }
+        }
+
         if (!this.wasOnGround && isOnGround) {
             this.currentMoveSpeed = 0.0;
             this.currentTurnSpeed = 0.0;
             this.currentAltitudeSpeed = 0.0;
         }
 
-        // Engine power interpolation (Spool up / Coast down)
+        // Smooth engine power scaling (spooling up and spooling down)
         if (this.enginePower !== this.targetEnginePower) {
             const rate = 0.035; 
             const diff = this.targetEnginePower - this.enginePower;
@@ -189,21 +221,19 @@ export class HelicopterPlayer {
             }
         }
 
-        // Rotor animation sync
         for (let name in this.actions) {
             if (name.toLowerCase().includes('rotor') || name.toLowerCase().includes('armature') || name.includes('Арматура')) {
                 const action = this.actions[name];
                 if (isOnGround && this.targetEnginePower === 0 && this.enginePower <= 0.001) {
                     if (action.isRunning()) action.stop();
                 } else {
-                    const activeTimeScale = Math.max(this.enginePower * 1.2, 0.1);
+                    const activeTimeScale = Math.max(this.enginePower * 1.2, 0.05);
                     action.timeScale = activeTimeScale;
                     if (activeTimeScale > 0 && !action.isRunning()) action.reset().play();
                 }
             }
         }
 
-        // Lock controls if engine is completely dead and resting on the ground
         if (isOnGround && this.targetEnginePower === 0 && this.enginePower <= 0.001) {
             this.currentMoveSpeed = 0.0;
             this.currentTurnSpeed = 0.0;
@@ -216,44 +246,48 @@ export class HelicopterPlayer {
         const currentMass = this.getTotalMass();
         const massFactor = this.baselineMassKg / currentMass; 
 
-        let activeSpeedLimit = (isOnGround ? this.maxTaxiSpeed : this.maxMoveSpeed) * Math.max(this.enginePower, 0.2);
+        let activeDragMultiplier = weatherData && weatherData.effects ? weatherData.effects.dragMultiplier : 1.0;
+        
+        // --- 50% Speed Reduction When Landing Gear Extended In Flight ---
+        if (!this.isGearUp && !isOnGround) {
+            activeDragMultiplier += 1.0; // Doubling the drag factor halves the max speed limit (multiplier of 2.0x total drag)
+        }
+
+        let activeLiftMultiplier = weatherData && weatherData.effects ? weatherData.effects.liftMultiplier : 1.0;
+
+        let activeSpeedLimit = (isOnGround ? this.maxTaxiSpeed : this.maxMoveSpeed) * Math.max(this.enginePower, 0.2) / activeDragMultiplier;
         const activeTurnSpeed = (isOnGround ? this.maxTaxiTurnSpeed : this.maxTurnSpeed) * Math.min(massFactor, 1.2) * Math.max(this.enginePower, 0.2);
 
-        // Input Mapping & Autorotation (4:1 Glide Ratio)
         let targetMove = 0;
         let targetTurn = 0;
         let targetAltitude = 0;
 
-        if (keys['KeyA']) targetTurn += activeTurnSpeed;
-        if (keys['KeyD']) targetTurn -= activeTurnSpeed;
+        if (keys['ArrowLeft']) targetTurn += activeTurnSpeed;
+        if (keys['ArrowRight']) targetTurn -= activeTurnSpeed;
 
         if (this.enginePower >= 0.45) {
-            if (keys['KeyW']) targetMove -= activeSpeedLimit;
-            if (keys['KeyS']) targetMove += activeSpeedLimit;
+            if (keys['ArrowUp']) targetMove -= activeSpeedLimit;
+            if (keys['ArrowDown']) targetMove += activeSpeedLimit;
 
             if (keys['ShiftLeft'] || keys['ShiftRight']) {
-                targetAltitude += (this.maxAltitudeSpeed * this.enginePower) * massFactor;
+                targetAltitude += (this.maxAltitudeSpeed * this.enginePower * activeLiftMultiplier) * massFactor;
             }
             if (keys['ControlLeft'] || keys['ControlRight']) {
-                targetAltitude -= (this.maxAltitudeSpeed * this.enginePower) * massFactor;
+                targetAltitude -= (this.maxAltitudeSpeed * this.enginePower * activeLiftMultiplier) * massFactor;
             }
         } else if (!isOnGround) {
-            // --- AUTOROTATION MODE (4:1 Forward Glide Ratio) ---
+            // --- AUTOROTATION MODE ---
             const sinkRate = 5.5 * massFactor;
             targetAltitude -= sinkRate;
-
-            // 4:1 glide ratio means forward speed = sinkRate * 4.0
             targetMove -= sinkRate * 4.0;
 
-            // Allow subtle player pitch adjustments during autorotation glide
-            if (keys['KeyW']) targetMove -= activeSpeedLimit * 0.4;
-            if (keys['KeyS']) targetMove += activeSpeedLimit * 0.4;
+            if (keys['ArrowUp']) targetMove -= activeSpeedLimit * 0.4;
+            if (keys['ArrowDown']) targetMove += activeSpeedLimit * 0.4;
         } else {
-            if (keys['KeyW']) targetMove -= activeSpeedLimit;
-            if (keys['KeyS']) targetMove += activeSpeedLimit;
+            if (keys['ArrowUp']) targetMove -= activeSpeedLimit;
+            if (keys['ArrowDown']) targetMove += activeSpeedLimit;
         }
 
-        // Momentum application
         const translationAccelerationRate = (isOnGround ? 2.0 : 0.8) * massFactor * delta; 
         const turnAccelerationRate = 2.0 * delta;
         const altitudeAccelerationRate = 3.5 * massFactor * delta;
@@ -262,7 +296,6 @@ export class HelicopterPlayer {
         this.currentTurnSpeed += (targetTurn - this.currentTurnSpeed) * Math.min(turnAccelerationRate, 1.0);
         this.currentAltitudeSpeed += (targetAltitude - this.currentAltitudeSpeed) * Math.min(altitudeAccelerationRate, 1.0);
 
-        // Translate updates to the model
         if (Math.abs(this.currentMoveSpeed) > 0.001) {
             this.model.translateX(this.currentMoveSpeed * delta);
         }
@@ -270,14 +303,12 @@ export class HelicopterPlayer {
             this.model.rotation.y += this.currentTurnSpeed * delta;
         }
 
-        // Apply Dynamic Wind Drift When Airborne
-        if (windVector && !isOnGround) {
+        if (weatherData && weatherData.wind && !isOnGround) {
             const windImpactFactor = (this.baselineMassKg / currentMass) * delta;
-            this.model.position.x += windVector.x * windImpactFactor * 1.5;
-            this.model.position.z += windVector.z * windImpactFactor * 1.5;
+            this.model.position.x += weatherData.wind.x * windImpactFactor * 1.5;
+            this.model.position.z += weatherData.wind.z * windImpactFactor * 1.5;
         }
 
-        // Apply vertical position safely ensuring it doesn't drop below ground level
         let newY = this.model.position.y + (this.currentAltitudeSpeed * delta);
         if (newY <= activeGroundLevel) {
             newY = activeGroundLevel;

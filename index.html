@@ -3,18 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Modular Web Game</title>
+    <title>AW189 Helicopter Simulation</title>
     <style>
         body {
             margin: 0;
             overflow: hidden;
             background-color: #000;
+            font-family: monospace;
         }
-        canvas {
-            display: block;
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #00ff00;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 5px;
+            pointer-events: none;
+            font-size: 14px;
+            line-height: 1.6;
+            border: 1px solid #00ff00;
+        }
+        .hud-item {
+            margin-bottom: 5px;
+        }
+        .status-on {
+            color: #00ff00;
+            font-weight: bold;
+        }
+        .status-off {
+            color: #ff5555;
+            font-weight: bold;
         }
     </style>
-    <!-- Import map for Three.js modules -->
+    <!-- Import map for Three.js and addons -->
     <script type="importmap">
         {
             "imports": {
@@ -25,6 +47,15 @@
     </script>
 </head>
 <body>
+    <div id="hud">
+        <div class="hud-item">Battery (Q): <span id="hud-battery" class="status-off">OFF</span></div>
+        <div class="hud-item">Fuel Pump (F): <span id="hud-fuelpump" class="status-off">OFF</span></div>
+        <div class="hud-item">Engine (E): <span id="hud-engine" class="status-off">STOPPED</span></div>
+        <div class="hud-item">Fuel Qty: <span id="hud-fuelqty">800</span> kg</div>
+        <div class="hud-item">Speed: <span id="hud-speed">0</span> kts</div>
+        <div class="hud-item">Weather: <span id="hud-weather">CLEAR</span></div>
+    </div>
+
     <script type="module" src="./main.js"></script>
 </body>
 </html>
