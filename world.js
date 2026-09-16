@@ -73,8 +73,8 @@ window.addEventListener('keyup', (e) => {
     keys[e.code] = false;
 });
 
-// Camera Zoom Controls
-let cameraDistance = 25;
+// Camera Zoom Controls (Initialized to the max zoom-out limit of 60)
+let cameraDistance = 60;
 window.addEventListener('wheel', (e) => {
     cameraDistance += e.deltaY * 0.05;
     cameraDistance = Math.max(10, Math.min(60, cameraDistance));
@@ -85,14 +85,13 @@ const loader = new GLTFLoader();
 // Load Environment & Helicopter
 loader.load('oil_rig.glb', (gltf) => {
     oilRigModel = gltf.scene;
-    // Raised the oil rig model up by +0.5m on Y so the entire physical deck matches the collision boundary
     oilRigModel.position.set(30, -0.95, 0); 
     scene.add(oilRigModel);
 
     loader.load('helicopter.glb', (gltfHeli) => {
         const model = gltfHeli.scene;
         
-        // Spawn matching the new elevated helipad height (37.85)
+        // Spawn matching the elevated helipad height (37.85)
         model.position.set(36.80, 37.85, -65.46);
         scene.add(model);
 
