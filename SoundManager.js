@@ -21,6 +21,12 @@ export class SoundManager {
 
         this.isPlaying = false;
 
+        // --- Rain Sound Nodes ---
+        this.rainNoiseNode = null;
+        this.rainFilterNode = null;
+        this.rainGainNode = null;
+        this.isRainSoundPlaying = false;
+
         // --- Auto-Unlock Audio Context on First User Interaction ---
         const unlockAudio = () => {
             this.ensureContextRunning();
@@ -232,7 +238,7 @@ export class SoundManager {
         this.turbineOsc.frequency.setValueAtTime(400, now);
 
         this.turbineGain = this.audioCtx.createGain();
-        this.turbineGain.gain.setValueAtTime(0.05, now);
+        this.turbineGain.gain.setValueAtTime(0.0125, now); // Halved again from 0.025 to 0.0125
 
         this.turbineOsc.connect(this.turbineGain);
 
@@ -322,6 +328,77 @@ export class SoundManager {
         this.turbineOsc.frequency.setTargetAtTime(targetTurbineFreq, now, 0.1);
         this.filterNode.frequency.setTargetAtTime(targetFilterFreq, now, 0.1);
         this.rotorLfo.frequency.setTargetAtTime(targetRotorFreq, now, 0.1);
+    }
+
+    // --- Cockpit Rain Audio ---
+    startRainSound() {
+        if (this.isRainSoundPlaying || !this.audioCtx) return;
+        const now = this.audioCtx.currentTime;
+
+        const bufferSize = this.audioCtx.sampleRate * 2;
+        const buffer = this.audioCtx.createBuffer(1, bufferSize, this.audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+        }
+
+        this.rainNoiseNode = this.audioCtx.createBufferSource();
+        this.rainNoiseNode.buffer = buffer;
+        this.rainNoiseNode.loop = true;
+
+        this.rainFilterNode = this.audioCtx.createBiquadFilter();
+        this.rainFilterNode.type = 'bandpass';
+        this.rainFilterNode.frequency.setValueAtTime(1400, now);
+        this.rainFilterNode.Q.setValueAtTime(1.2, now);
+
+        this.rainGainNode = this.audioCtx.createGain();
+        this.rainGainNode.gain.setValueAtTime(0.001, now);
+        this.rainGainNode.gain.linearRampToValueAtTime(0.08, now + 1.0);
+
+        this.rainNoiseNode.connect(this.rainFilterNode);
+        this.rainFilterNode.connect(this.rainGainNode);
+        this.rainGainNode.connect(this.masterGain);
+
+        this.rainNoiseNode.start(now);
+        this.isRainSoundPlaying = true;
+    }
+
+    stopRainSound() {
+        if (!this.isRainSoundPlaying || !this.audioCtx) return;
+        const now = this.audioCtx.currentTime;
+
+        if (this.rainGainNode) {
+            this.rainGainNode.gain.setValueAtTime(this.rainGainNode.gain.value, now);
+            this.rainGainNode.gain.linearRampToValueAtTime(0.001, now + 1.0);
+        }
+
+        setTimeout(() => {
+            if (this.rainNoiseNode) {
+                this.rainNoiseNode.stop();
+                this.rainNoiseNode.disconnect();
+                this.rainNoiseNode = null;
+            }
+            if (this.rainFilterNode) {
+                this.rainFilterNode.disconnect();
+                this.rainFilterNode = null;
+            }
+            if (this.rainGainNode) {
+                this.rainGainNode.disconnect();
+                this.rainGainNode = null;
+            }
+            this.isRainSoundPlaying = false;
+        }, 1000);
+    }
+
+    updateRainAudio(weatherData) {
+        if (!this.audioCtx) return;
+        const isRaining = weatherData && (weatherData.weatherType === 'rain' || weatherData.weatherType === 'storm');
+
+        if (isRaining && !this.isRainSoundPlaying) {
+            this.startRainSound();
+        } else if (!isRaining && this.isRainSoundPlaying) {
+            this.stopRainSound();
+        }
     }
 }
 
