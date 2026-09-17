@@ -21,6 +21,16 @@ let heliShadow = null;
 
 const loader = new GLTFLoader();
 
+// Wire up Fuel Test Slider UI element
+const fuelSlider = document.getElementById('fuel-slider');
+if (fuelSlider) {
+    fuelSlider.addEventListener('input', (e) => {
+        if (helicopterPlayer) {
+            helicopterPlayer.fuelKg = parseFloat(e.target.value);
+        }
+    });
+}
+
 // Load Oil Rig and attach permanent, always-on lights
 loader.load('oil_rig.glb', (gltfRig) => {
     const oilRig = gltfRig.scene;
@@ -29,7 +39,6 @@ loader.load('oil_rig.glb', (gltfRig) => {
     
     const oilRigLightsGroup = new THREE.Group();
 
-    // Precise local coordinates for green helipad lights and red structure lights
     const rigLightsData = [
         // Green Helipad Lights (8)
         { color: 'green', x: 7.009, y: 39.222, z: -78.055 },
@@ -76,7 +85,6 @@ loader.load('helicopter.glb', (gltfHeli) => {
     model.position.set(36.80, 37.85, -65.46);
     scene.add(model);
 
-    // Helicopter Shadow Mesh
     try {
         const shadowGeo = new THREE.PlaneGeometry(4.0, 4.0);
         shadowGeo.rotateX(-Math.PI / 2);
@@ -137,7 +145,6 @@ loader.load('helicopter.glb', (gltfHeli) => {
     landingLight.target = landingTarget;
     heliLightsGroup.add(landingLight);
 
-    // --- Cockpit Interior Light ---
     cockpitLight = new THREE.PointLight(0xffd27d, 3.5, 6);
     cockpitLight.position.set(-3.60, 1.90, -0.18);
     heliLightsGroup.add(cockpitLight);
@@ -162,6 +169,7 @@ function updateHUD(player, weatherData) {
         const fuelPumpEl = document.getElementById('hud-fuelpump');
         const engineEl = document.getElementById('hud-engine');
         const fuelQtyEl = document.getElementById('hud-fuelqty');
+        const fuelSliderEl = document.getElementById('fuel-slider');
         const speedEl = document.getElementById('hud-speed');
         const altitudeEl = document.getElementById('hud-altitude');
         const weatherEl = document.getElementById('hud-weather');
@@ -191,6 +199,10 @@ function updateHUD(player, weatherData) {
                 fuelQtyEl.innerText = Math.max(0, Math.round(player.fuelKg || 0));
             }
 
+            if (fuelSliderEl && document.activeElement !== fuelSliderEl) {
+                fuelSliderEl.value = Math.max(0, Math.min(1000, player.fuelKg || 0));
+            }
+
             if (speedEl) {
                 const speedKnots = Math.round(Math.abs(player.currentMoveSpeed || 0) * 1.94384);
                 speedEl.innerText = speedKnots;
@@ -215,7 +227,6 @@ function animate() {
     requestAnimationFrame(animate);
 
     const delta = clock.getDelta();
-    const time = clock.getElapsedTime();
 
     if (water && water.material && water.material.uniforms && water.material.uniforms['time']) {
         water.material.uniforms['time'].value += delta * 0.3;
@@ -263,15 +274,11 @@ function animate() {
         }
 
         const electricalActive = helicopterPlayer.isElectricalOn;
-        if (redLight && greenLight && strobeLight && landingLight && cockpitLight) {
+        if (redLight && greenLight && landingLight && cockpitLight) {
             redLight.intensity = electricalActive ? 2.5 : 0.0;
             greenLight.intensity = electricalActive ? 2.5 : 0.0;
             if (redBulb) redBulb.visible = electricalActive;
             if (greenBulb) greenBulb.visible = electricalActive;
-
-            const isStrobeActive = electricalActive && ((Math.floor(time * 4) % 2) === 0);
-            strobeLight.intensity = isStrobeActive ? 8.0 : 0.0;
-            if (strobeBulb) strobeBulb.visible = isStrobeActive;
 
             landingLight.intensity = (electricalActive && inputManager && inputManager.landingLightOn) ? 18.0 : 0.0;
             cockpitLight.intensity = electricalActive ? 3.5 : 0.0;

@@ -6,6 +6,16 @@ export class HelicopterPlayer {
         this.mixer = mixer;
         this.soundManager = soundManager;
         this.actions = {};
+
+        // Find the top strobe light for fuel warning indication
+        this.strobeLight = null;
+        this.strobeOriginalColor = new THREE.Color(0xffffff);
+        this.model.traverse((child) => {
+            if (child.isPointLight && child.position.y > 3.0) {
+                this.strobeLight = child;
+                this.strobeOriginalColor = child.color.clone();
+            }
+        });
         
         window.addEventListener('keydown', (event) => {
             if (event.ctrlKey && event.code === 'KeyW') {
@@ -35,13 +45,14 @@ export class HelicopterPlayer {
 
         // --- AW189 Specs & Limits ---
         this.dryWeightKg = 4600;       
-        this.fuelKg = 800;            
+        this.fuelKg = 1000;            
+        this.maxFuelKg = 1000;
         this.passengerCount = 6;      
         this.passengerAvgKg = 85;     
-        this.baselineMassKg = 6000; 
+        this.baselineMassKg = 6200; 
 
         // --- Fuel Burn Rate Configuration (5 minutes full to empty) ---
-        this.maxFuelBurnRatePerSec = 800.0 / 300.0; 
+        this.maxFuelBurnRatePerSec = 1000.0 / 300.0; 
 
         // --- Real-world AW189 scaling (~145-150 kts max cruise = ~75 m/s) ---
         this.maxMoveSpeed = 75.0;       
@@ -205,7 +216,7 @@ export class HelicopterPlayer {
 
             let aeroDragMultiplier = 1.0;
             if (!this.isGearUp && !isOnGround) {
-                aeroDragMultiplier += 1.0; // Higher fuel consumption burn due to gear drag
+                aeroDragMultiplier += 1.0; 
             }
 
             if (weatherData && weatherData.wind && !isOnGround) {
@@ -227,6 +238,47 @@ export class HelicopterPlayer {
                     this.soundManager.stopHelicopterEngine();
                 }
                 console.log("AW189: Engines shutdown - Out of Fuel!");
+            }
+        }
+
+        // --- Strobe Light Fuel Warning Indicator Logic (Thresholds: 500kg & 100kg) ---
+        if (this.strobeLight) {
+            if (!this.isElectricalOn) {
+                this.strobeLight.intensity = 0;
+                this.model.traverse((child) => {
+                    if (child.isMesh && child.position.distanceTo(this.strobeLight.position) < 0.1) {
+                        child.visible = false;
+                    }
+                });
+            } else {
+                const time = Date.now() * 0.001; // seconds
+
+                let flashRate = 4.0; // Normal: 4 Hz (standard strobe cadence)
+                let targetColor = this.strobeOriginalColor;
+
+                if (this.fuelKg <= 100.0) {
+                    // Bingo Fuel (<= 100 kg): Red, rapid strobe blink (16 Hz)
+                    targetColor = new THREE.Color(0xe74c3c);
+                    flashRate = 16.0;
+                } else if (this.fuelKg <= 500.0) {
+                    // Low Fuel (<= 500 kg): Orange, faster blink (8 Hz)
+                    targetColor = new THREE.Color(0xe67e22);
+                    flashRate = 8.0;
+                }
+
+                this.strobeLight.color.copy(targetColor);
+                const isStrobeActive = (Math.floor(time * flashRate) % 2) === 0;
+                this.strobeLight.intensity = isStrobeActive ? 8.0 : 0.0;
+
+                // Sync strobe bulb visual mesh
+                this.model.traverse((child) => {
+                    if (child.isMesh && child.position.distanceTo(this.strobeLight.position) < 0.1) {
+                        if (child.material) {
+                            child.material.color.copy(this.strobeLight.color);
+                        }
+                        child.visible = this.strobeLight.intensity > 0;
+                    }
+                });
             }
         }
 
@@ -333,7 +385,6 @@ export class HelicopterPlayer {
             this.model.rotation.y += this.currentTurnSpeed * delta;
         }
 
-        // Reduced wind displacement impact factor from 1.5 to 0.4 for smooth, controllable flight
         if (weatherData && weatherData.wind && !isOnGround) {
             const windImpactFactor = (this.baselineMassKg / currentMass) * delta;
             this.model.position.x += weatherData.wind.x * windImpactFactor * 0.4;
@@ -342,13 +393,11 @@ export class HelicopterPlayer {
 
         let newY = this.model.position.y + (this.currentAltitudeSpeed * delta);
         
-        // Ground Collision Check
         if (newY <= activeGroundLevel) {
             newY = activeGroundLevel;
             this.currentAltitudeSpeed = 0;
         }
 
-        // Maximum Ceiling Check (400 ft converted to meters)
         const maxCeilingMeters = this.maxCeilingFeet / 3.28084;
         if (newY >= maxCeilingMeters) {
             newY = maxCeilingMeters;
