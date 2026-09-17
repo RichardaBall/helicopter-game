@@ -53,5 +53,12 @@ export function setupScene() {
         renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    return { scene, camera, renderer, water };
+    return { 
+        scene, 
+        camera, 
+        renderer, 
+        water, 
+        sunLight: dirLight, 
+        ambientLight 
+    };
 }

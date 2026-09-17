@@ -5,7 +5,7 @@ import { WeatherSystem } from './weather.js';
 import { InputManager } from './inputManager.js';
 import { HelicopterPlayer } from './player.js';
 
-const { scene, camera, renderer, water, sunLight } = setupScene();
+const { scene, camera, renderer, water, sunLight, ambientLight } = setupScene();
 const weatherSystem = new WeatherSystem();
 const inputManager = new InputManager();
 const clock = new THREE.Clock();
@@ -25,30 +25,34 @@ loader.load('helicopter.glb', (gltfHeli) => {
     scene.add(model);
 
     // Helicopter Shadow Mesh
-    const shadowGeo = new THREE.PlaneGeometry(4.0, 4.0);
-    shadowGeo.rotateX(-Math.PI / 2);
-    
-    const canvas = document.createElement('canvas');
-    canvas.width = 128;
-    canvas.height = 128;
-    const ctx = canvas.getContext('2d');
-    const gradient = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
-    gradient.addColorStop(0, 'rgba(0, 0, 0, 0.7)');
-    gradient.addColorStop(0.5, 'rgba(0, 0, 0, 0.4)');
-    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, 128, 128);
+    try {
+        const shadowGeo = new THREE.PlaneGeometry(4.0, 4.0);
+        shadowGeo.rotateX(-Math.PI / 2);
+        
+        const canvas = document.createElement('canvas');
+        canvas.width = 128;
+        canvas.height = 128;
+        const ctx = canvas.getContext('2d');
+        const gradient = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+        gradient.addColorStop(0, 'rgba(0, 0, 0, 0.7)');
+        gradient.addColorStop(0.5, 'rgba(0, 0, 0, 0.4)');
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 128, 128);
 
-    const shadowTexture = new THREE.CanvasTexture(canvas);
-    const shadowMat = new THREE.MeshBasicMaterial({
-        map: shadowTexture,
-        transparent: true,
-        depthWrite: false,
-    });
+        const shadowTexture = new THREE.CanvasTexture(canvas);
+        const shadowMat = new THREE.MeshBasicMaterial({
+            map: shadowTexture,
+            transparent: true,
+            depthWrite: false,
+        });
 
-    heliShadow = new THREE.Mesh(shadowGeo, shadowMat);
-    heliShadow.position.set(model.position.x, 0.05, model.position.z);
-    scene.add(heliShadow);
+        heliShadow = new THREE.Mesh(shadowGeo, shadowMat);
+        heliShadow.position.set(model.position.x, 0.05, model.position.z);
+        scene.add(heliShadow);
+    } catch (e) {
+        console.warn("Shadow mesh creation failed:", e);
+    }
 
     heliLightsGroup = new THREE.Group();
 
@@ -91,41 +95,56 @@ loader.load('helicopter.glb', (gltfHeli) => {
 
     const mixer = new THREE.AnimationMixer(model);
     helicopterPlayer = new HelicopterPlayer(model, gltfHeli.animations, mixer);
+}, undefined, (error) => {
+    console.error("Helicopter model failed to load:", error);
 });
 
 function updateHUD(player, weatherData) {
-    const batteryEl = document.getElementById('hud-battery');
-    const fuelPumpEl = document.getElementById('hud-fuelpump');
-    const engineEl = document.getElementById('hud-engine');
-    const fuelQtyEl = document.getElementById('hud-fuelqty');
-    const speedEl = document.getElementById('hud-speed');
-    const weatherEl = document.getElementById('hud-weather');
+    try {
+        const batteryEl = document.getElementById('hud-battery');
+        const fuelPumpEl = document.getElementById('hud-fuelpump');
+        const engineEl = document.getElementById('hud-engine');
+        const fuelQtyEl = document.getElementById('hud-fuelqty');
+        const speedEl = document.getElementById('hud-speed');
+        const weatherEl = document.getElementById('hud-weather');
 
-    if (player) {
-        batteryEl.innerText = player.isElectricalOn ? 'ON' : 'OFF';
-        batteryEl.className = player.isElectricalOn ? 'status-on' : 'status-off';
+        if (player) {
+            if (batteryEl) {
+                batteryEl.innerText = player.isElectricalOn ? 'ON' : 'OFF';
+                batteryEl.className = player.isElectricalOn ? 'status-on' : 'status-off';
+            }
 
-        fuelPumpEl.innerText = player.isFuelPumpOn ? 'ON' : 'OFF';
-        fuelPumpEl.className = player.isFuelPumpOn ? 'status-on' : 'status-off';
+            if (fuelPumpEl) {
+                fuelPumpEl.innerText = player.isFuelPumpOn ? 'ON' : 'OFF';
+                fuelPumpEl.className = player.isFuelPumpOn ? 'status-on' : 'status-off';
+            }
 
-        if (player.enginePower > 0.01) {
-            engineEl.innerText = `RUNNING (${Math.round(player.enginePower * 100)}%)`;
-            engineEl.className = 'status-on';
-        } else {
-            engineEl.innerText = 'STOPPED';
-            engineEl.className = 'status-off';
+            if (engineEl) {
+                if (player.enginePower > 0.01) {
+                    engineEl.innerText = `RUNNING (${Math.round(player.enginePower * 100)}%)`;
+                    engineEl.className = 'status-on';
+                } else {
+                    engineEl.innerText = 'STOPPED';
+                    engineEl.className = 'status-off';
+                }
+            }
+
+            if (fuelQtyEl) {
+                fuelQtyEl.innerText = Math.max(0, Math.round(player.fuelKg || 0));
+            }
+
+            if (speedEl) {
+                const speedKnots = Math.round(Math.abs(player.currentMoveSpeed || 0) * 1.94384);
+                speedEl.innerText = speedKnots;
+            }
         }
 
-        fuelQtyEl.innerText = Math.max(0, Math.round(player.fuelKg));
-
-        if (speedEl) {
-            const speedKnots = Math.round(Math.abs(player.currentMoveSpeed) * 1.94384);
-            speedEl.innerText = speedKnots;
+        if (weatherData && weatherEl) {
+            const todTag = weatherData.isNight ? ' (NIGHT)' : ' (DAY)';
+            weatherEl.innerText = `${(weatherData.weatherType || 'FINE').toUpperCase()}${todTag}`;
         }
-    }
-
-    if (weatherData && weatherEl) {
-        weatherEl.innerText = weatherData.weatherType.toUpperCase();
+    } catch (e) {
+        // Suppress non-critical HUD update errors
     }
 }
 
@@ -135,33 +154,42 @@ function animate() {
     const delta = clock.getDelta();
     const time = clock.getElapsedTime();
 
-    water.material.uniforms['time'].value += delta * 0.3;
-
-    const weatherData = weatherSystem.update(delta, scene, camera.position, sunLight);
-
-    if (scene.fog) {
-        scene.fog.density = weatherData.effects.fogDensity;
+    if (water && water.material && water.material.uniforms && water.material.uniforms['time']) {
+        water.material.uniforms['time'].value += delta * 0.3;
     }
 
-    if (weatherSystem.rainParticles && !scene.getObjectById(weatherSystem.rainParticles.id)) {
+    let weatherData = null;
+    try {
+        weatherData = weatherSystem.update(delta, scene, camera ? camera.position : null, sunLight, ambientLight);
+    } catch (err) {
+        console.error("Weather system update error:", err);
+    }
+
+    if (weatherSystem && weatherSystem.rainParticles && !scene.getObjectById(weatherSystem.rainParticles.id)) {
         scene.add(weatherSystem.rainParticles);
     }
 
     if (helicopterPlayer && helicopterPlayer.model) {
-        helicopterPlayer.update(delta, inputManager.keys, weatherData);
+        helicopterPlayer.update(delta, inputManager ? inputManager.keys : {}, weatherData);
         
-        water.position.x = helicopterPlayer.model.position.x;
-        water.position.z = helicopterPlayer.model.position.z;
+        if (water) {
+            water.position.x = helicopterPlayer.model.position.x;
+            water.position.z = helicopterPlayer.model.position.z;
+        }
 
         if (heliShadow) {
-            const groundLevel = helicopterPlayer.getCurrentGroundLevel();
+            const groundLevel = helicopterPlayer.getCurrentGroundLevel ? helicopterPlayer.getCurrentGroundLevel() : 0;
             const currentHeight = Math.max(0, helicopterPlayer.model.position.y - groundLevel);
             
             heliShadow.position.set(helicopterPlayer.model.position.x, groundLevel + 0.05, helicopterPlayer.model.position.z);
             
             const maxShadowHeight = 40.0;
             const heightFactor = Math.max(0, 1.0 - (currentHeight / maxShadowHeight));
-            heliShadow.material.opacity = Math.max(0.05, 0.6 * heightFactor);
+            
+            const nightFactor = weatherData && weatherData.isNight ? 0.2 : 1.0;
+            if (heliShadow.material) {
+                heliShadow.material.opacity = Math.max(0.02, 0.6 * heightFactor * nightFactor);
+            }
             
             const scale = Math.max(0.5, 1.5 - (currentHeight * 0.02));
             heliShadow.scale.set(scale, scale, scale);
@@ -171,33 +199,38 @@ function animate() {
         if (redLight && greenLight && strobeLight && landingLight) {
             redLight.intensity = electricalActive ? 2.5 : 0.0;
             greenLight.intensity = electricalActive ? 2.5 : 0.0;
-            redBulb.visible = electricalActive;
-            greenBulb.visible = electricalActive;
+            if (redBulb) redBulb.visible = electricalActive;
+            if (greenBulb) greenBulb.visible = electricalActive;
 
             const isStrobeActive = electricalActive && ((Math.floor(time * 4) % 2) === 0);
             strobeLight.intensity = isStrobeActive ? 8.0 : 0.0;
-            strobeBulb.visible = isStrobeActive;
+            if (strobeBulb) strobeBulb.visible = isStrobeActive;
 
-            landingLight.intensity = (electricalActive && inputManager.landingLightOn) ? 18.0 : 0.0;
+            landingLight.intensity = (electricalActive && inputManager && inputManager.landingLightOn) ? 18.0 : 0.0;
         }
 
-        const elevationAngle = 45 * (Math.PI / 180); 
-        const cosAlpha = Math.cos(elevationAngle);
-        const sinAlpha = Math.sin(elevationAngle);
-        const diagFactor = 0.7071;
+        if (inputManager && camera) {
+            const elevationAngle = 45 * (Math.PI / 180); 
+            const cosAlpha = Math.cos(elevationAngle);
+            const sinAlpha = Math.sin(elevationAngle);
+            const diagFactor = 0.7071;
 
-        const offsetX = inputManager.cameraDistance * cosAlpha * diagFactor;
-        const offsetY = inputManager.cameraDistance * sinAlpha;
-        const offsetZ = inputManager.cameraDistance * cosAlpha * diagFactor;
+            const dist = inputManager.cameraDistance || 30;
+            const offsetX = dist * cosAlpha * diagFactor;
+            const offsetY = dist * sinAlpha;
+            const offsetZ = dist * cosAlpha * diagFactor;
 
-        const targetCameraPos = helicopterPlayer.model.position.clone().add(new THREE.Vector3(offsetX, offsetY, offsetZ));
-        camera.position.lerp(targetCameraPos, 0.1);
-        camera.lookAt(helicopterPlayer.model.position);
+            const targetCameraPos = helicopterPlayer.model.position.clone().add(new THREE.Vector3(offsetX, offsetY, offsetZ));
+            camera.position.lerp(targetCameraPos, 0.1);
+            camera.lookAt(helicopterPlayer.model.position);
+        }
     }
 
     updateHUD(helicopterPlayer, weatherData);
 
-    renderer.render(scene, camera);
+    if (renderer && scene && camera) {
+        renderer.render(scene, camera);
+    }
 }
 
 animate();
