@@ -23,6 +23,7 @@
             font-size: 14px;
             line-height: 1.6;
             border: 1px solid #00ff00;
+            display: none;
         }
         .hud-item {
             margin-bottom: 5px;
@@ -73,6 +74,7 @@
         <div class="hud-item">Engine (E): <span id="hud-engine" class="status-off">STOPPED</span></div>
         <div class="hud-item">Fuel Qty: <span id="hud-fuelqty">800</span> kg</div>
         <div class="hud-item">Speed: <span id="hud-speed">0</span> kts</div>
+        <div class="hud-item">Altitude: <span id="hud-altitude">0</span> ft</div>
         <div class="hud-item">Weather: <span id="hud-weather">CLEAR</span></div>
     </div>
 
@@ -99,6 +101,15 @@
             } else {
                 if (document.exitFullscreen) {
                     document.exitFullscreen();
+                }
+            }
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'KeyK') {
+                const hud = document.getElementById('hud');
+                if (hud) {
+                    hud.style.display = (hud.style.display === 'none' || hud.style.display === '') ? 'block' : 'none';
                 }
             }
         });

@@ -113,6 +113,7 @@ function updateHUD(player, weatherData) {
         const engineEl = document.getElementById('hud-engine');
         const fuelQtyEl = document.getElementById('hud-fuelqty');
         const speedEl = document.getElementById('hud-speed');
+        const altitudeEl = document.getElementById('hud-altitude');
         const weatherEl = document.getElementById('hud-weather');
 
         if (player) {
@@ -144,6 +145,11 @@ function updateHUD(player, weatherData) {
                 const speedKnots = Math.round(Math.abs(player.currentMoveSpeed || 0) * 1.94384);
                 speedEl.innerText = speedKnots;
             }
+
+            if (altitudeEl && player.model) {
+                const altFt = Math.round(player.model.position.y * 3.28084);
+                altitudeEl.innerText = altFt;
+            }
         }
 
         if (weatherData && weatherEl) {
@@ -170,6 +176,11 @@ function animate() {
         weatherData = weatherSystem.update(delta, scene, camera ? camera.position : null, sunLight, ambientLight);
     } catch (err) {
         console.error("Weather system update error:", err);
+    }
+
+    // Update rain audio based on active weather state
+    if (soundManager) {
+        soundManager.updateRainAudio(weatherData);
     }
 
     if (weatherSystem && weatherSystem.rainParticles && !scene.getObjectById(weatherSystem.rainParticles.id)) {
