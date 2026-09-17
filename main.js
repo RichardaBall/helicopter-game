@@ -12,7 +12,7 @@ const clock = new THREE.Clock();
 
 let helicopterPlayer = null;
 
-let redLight, greenLight, strobeLight, landingLight;
+let redLight, greenLight, strobeLight, landingLight, cockpitLight;
 let redBulb, greenBulb, strobeBulb;
 let heliLightsGroup;
 let heliShadow = null;
@@ -84,6 +84,11 @@ loader.load('helicopter.glb', (gltfHeli) => {
     model.add(landingTarget);
     landingLight.target = landingTarget;
     heliLightsGroup.add(landingLight);
+
+    // --- Cockpit Interior Light ---
+    cockpitLight = new THREE.PointLight(0xffd27d, 3.5, 6);
+    cockpitLight.position.set(-3.60, 1.90, -0.18);
+    heliLightsGroup.add(cockpitLight);
 
     model.add(heliLightsGroup);
 
@@ -196,7 +201,7 @@ function animate() {
         }
 
         const electricalActive = helicopterPlayer.isElectricalOn;
-        if (redLight && greenLight && strobeLight && landingLight) {
+        if (redLight && greenLight && strobeLight && landingLight && cockpitLight) {
             redLight.intensity = electricalActive ? 2.5 : 0.0;
             greenLight.intensity = electricalActive ? 2.5 : 0.0;
             if (redBulb) redBulb.visible = electricalActive;
@@ -207,6 +212,7 @@ function animate() {
             if (strobeBulb) strobeBulb.visible = isStrobeActive;
 
             landingLight.intensity = (electricalActive && inputManager && inputManager.landingLightOn) ? 18.0 : 0.0;
+            cockpitLight.intensity = electricalActive ? 3.5 : 0.0;
         }
 
         if (inputManager && camera) {
