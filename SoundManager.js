@@ -3,15 +3,35 @@ export class SoundManager {
         this.audioCtx = null;
         this.masterGain = null;
 
-        // Helicopter Synth Nodes
+        // Engine & Rotor Synth Nodes
         this.noiseNode = null;
         this.filterNode = null;
-        this.lfoNode = null;
-        this.lfoGain = null;
-        this.synthGain = null;
+        
+        // Turbine Whine Nodes
+        this.turbineOsc = null;
+        this.turbineGain = null;
+
+        // Rotor Blade Slap (Whop-Whop) Nodes
+        this.rotorLfo = null;
+        this.rotorLfoGain = null;
+
+        // Master Engine Gain for Smooth Spool Up/Down
+        this.engineGain = null;
+        this.rotorModGain = null;
 
         this.isPlaying = false;
-        this.currentRpm = 0.0;
+
+        // --- Auto-Unlock Audio Context on First User Interaction ---
+        const unlockAudio = () => {
+            this.ensureContextRunning();
+            if (this.audioCtx && this.audioCtx.state === 'running') {
+                window.removeEventListener('pointerdown', unlockAudio);
+                window.removeEventListener('keydown', unlockAudio);
+                console.log("Web Audio Context successfully unlocked.");
+            }
+        };
+        window.addEventListener('pointerdown', unlockAudio);
+        window.addEventListener('keydown', unlockAudio);
     }
 
     init() {
@@ -38,7 +58,6 @@ export class SoundManager {
 
         const now = this.audioCtx.currentTime;
 
-        // 1. Transient click oscillator
         const osc = this.audioCtx.createOscillator();
         const gain = this.audioCtx.createGain();
 
@@ -55,7 +74,6 @@ export class SoundManager {
         osc.start(now);
         osc.stop(now + 0.04);
 
-        // 2. High-frequency electrical snap
         const snapOsc = this.audioCtx.createOscillator();
         const snapGain = this.audioCtx.createGain();
 
@@ -80,7 +98,6 @@ export class SoundManager {
         const now = this.audioCtx.currentTime;
         const duration = 1.2;
 
-        // 1. High-pitched auxiliary electric motor spin-up
         const pumpOsc = this.audioCtx.createOscillator();
         const pumpGain = this.audioCtx.createGain();
 
@@ -107,7 +124,6 @@ export class SoundManager {
         pumpOsc.start(now);
         pumpOsc.stop(now + duration);
 
-        // 2. Fluid pressurization hiss (filtered noise pulse)
         const bufferSize = this.audioCtx.sampleRate * duration;
         const buffer = this.audioCtx.createBuffer(1, bufferSize, this.audioCtx.sampleRate);
         const data = buffer.getChannelData(0);
@@ -187,12 +203,14 @@ export class SoundManager {
         lockOsc.stop(lockTime + 0.15);
     }
 
+    // Starts realistic cockpit turbine spool-up and main rotor blade slap
     startHelicopterEngine() {
         this.ensureContextRunning();
         if (this.isPlaying) return;
 
         const now = this.audioCtx.currentTime;
 
+        // 1. Noise buffer for engine combustion & fuselage vibration rumble
         const bufferSize = this.audioCtx.sampleRate * 2;
         const buffer = this.audioCtx.createBuffer(1, bufferSize, this.audioCtx.sampleRate);
         const output = buffer.getChannelData(0);
@@ -206,39 +224,70 @@ export class SoundManager {
 
         this.filterNode = this.audioCtx.createBiquadFilter();
         this.filterNode.type = 'lowpass';
-        this.filterNode.frequency.setValueAtTime(150, now);
+        this.filterNode.frequency.setValueAtTime(80, now);
 
-        this.lfoNode = this.audioCtx.createOscillator();
-        this.lfoNode.type = 'sawtooth';
-        this.lfoNode.frequency.setValueAtTime(1.5, now);
+        // 2. High-frequency Turbine Whine Oscillator
+        this.turbineOsc = this.audioCtx.createOscillator();
+        this.turbineOsc.type = 'sine';
+        this.turbineOsc.frequency.setValueAtTime(400, now);
 
-        this.lfoGain = this.audioCtx.createGain();
-        this.lfoGain.gain.setValueAtTime(200, now);
+        this.turbineGain = this.audioCtx.createGain();
+        this.turbineGain.gain.setValueAtTime(0.05, now);
 
-        this.lfoNode.connect(this.lfoGain);
-        this.lfoGain.connect(this.filterNode.frequency);
+        this.turbineOsc.connect(this.turbineGain);
 
-        this.synthGain = this.audioCtx.createGain();
-        this.synthGain.gain.setValueAtTime(0.01, now);
-        this.synthGain.gain.exponentialRampToValueAtTime(0.5, now + 1.0);
+        // 3. Main Rotor Blade Slap LFO (creates the characteristic cabin 'whop-whop' pressure pulse)
+        this.rotorLfo = this.audioCtx.createOscillator();
+        this.rotorLfo.type = 'triangle';
+        this.rotorLfo.frequency.setValueAtTime(4.5, now); // ~4.5 Hz blade pass frequency
 
+        this.rotorLfoGain = this.audioCtx.createGain();
+        this.rotorLfoGain.gain.setValueAtTime(0.12, now);
+
+        this.rotorLfo.connect(this.rotorLfoGain);
+
+        // Dedicated modulation gain node for rotor pulsation
+        this.rotorModGain = this.audioCtx.createGain();
+        this.rotorModGain.gain.setValueAtTime(1.0, now);
+        this.rotorLfoGain.connect(this.rotorModGain.gain);
+
+        // 4. Master Engine Gain Node for Spooling
+        this.engineGain = this.audioCtx.createGain();
+        this.engineGain.gain.setValueAtTime(0.001, now);
+        this.engineGain.gain.exponentialRampToValueAtTime(0.45, now + 3.5); // Spool up duration
+
+        // Routing connections
         this.noiseNode.connect(this.filterNode);
-        this.filterNode.connect(this.synthGain);
-        this.synthGain.connect(this.masterGain);
+        this.filterNode.connect(this.engineGain);
+        this.turbineGain.connect(this.engineGain);
+        
+        this.engineGain.connect(this.rotorModGain);
+        this.rotorModGain.connect(this.masterGain);
 
         this.noiseNode.start(now);
-        this.lfoNode.start(now);
+        this.turbineOsc.start(now);
+        this.rotorLfo.start(now);
+
         this.isPlaying = true;
     }
 
+    // Graceful engine spool down and shutdown
     stopHelicopterEngine() {
         if (!this.isPlaying || !this.audioCtx) return;
 
         const now = this.audioCtx.currentTime;
 
-        if (this.synthGain) {
-            this.synthGain.gain.setValueAtTime(this.synthGain.gain.value, now);
-            this.synthGain.gain.exponentialRampToValueAtTime(0.001, now + 2.0);
+        if (this.engineGain) {
+            this.engineGain.gain.setValueAtTime(this.engineGain.gain.value, now);
+            this.engineGain.gain.exponentialRampToValueAtTime(0.001, now + 3.0); // Spool down duration
+        }
+
+        if (this.turbineOsc) {
+            this.turbineOsc.frequency.setTargetAtTime(100, now, 1.5);
+        }
+
+        if (this.rotorLfo) {
+            this.rotorLfo.frequency.setTargetAtTime(0.5, now, 1.5);
         }
 
         setTimeout(() => {
@@ -246,25 +295,33 @@ export class SoundManager {
                 this.noiseNode.stop();
                 this.noiseNode.disconnect();
             }
-            if (this.lfoNode) {
-                this.lfoNode.stop();
-                this.lfoNode.disconnect();
+            if (this.turbineOsc) {
+                this.turbineOsc.stop();
+                this.turbineOsc.disconnect();
+            }
+            if (this.rotorLfo) {
+                this.rotorLfo.stop();
+                this.rotorLfo.disconnect();
             }
             this.isPlaying = false;
-        }, 2000);
+        }, 3000);
     }
 
+    // Modulates pitch, turbine whine, and rotor blade slap frequency based on engine power and airspeed
     updateHelicopterAudio(enginePower, moveSpeed) {
         if (!this.isPlaying || !this.audioCtx) return;
 
         const now = this.audioCtx.currentTime;
         
         const speedFactor = Math.abs(moveSpeed) / 75.0;
-        const targetLfoFreq = THREEMathClamp(2.0 + (enginePower * 12.0) + (speedFactor * 6.0), 1.5, 22.0);
-        const targetBaseFilterFreq = THREEMathClamp(150 + (enginePower * 350) + (speedFactor * 250), 150, 800);
 
-        this.lfoNode.frequency.setTargetAtTime(targetLfoFreq, now, 0.1);
-        this.filterNode.frequency.setTargetAtTime(targetBaseFilterFreq, now, 0.1);
+        const targetTurbineFreq = THREEMathClamp(400 + (enginePower * 1400) + (speedFactor * 400), 300, 2400);
+        const targetFilterFreq = THREEMathClamp(80 + (enginePower * 320) + (speedFactor * 150), 80, 500);
+        const targetRotorFreq = THREEMathClamp(3.5 + (enginePower * 2.0) + (speedFactor * 0.8), 3.0, 6.2);
+
+        this.turbineOsc.frequency.setTargetAtTime(targetTurbineFreq, now, 0.1);
+        this.filterNode.frequency.setTargetAtTime(targetFilterFreq, now, 0.1);
+        this.rotorLfo.frequency.setTargetAtTime(targetRotorFreq, now, 0.1);
     }
 }
 

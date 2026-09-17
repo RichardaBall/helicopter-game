@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 
 export class HelicopterPlayer {
-    constructor(model, animations, mixer) {
+    constructor(model, animations, mixer, soundManager = null) {
         this.model = model;
         this.mixer = mixer;
+        this.soundManager = soundManager;
         this.actions = {};
         
         window.addEventListener('keydown', (event) => {
@@ -78,11 +79,17 @@ export class HelicopterPlayer {
 
     toggleElectrical() {
         this.isElectricalOn = !this.isElectricalOn;
+        if (this.soundManager) {
+            this.soundManager.playBatterySwitchSound(this.isElectricalOn);
+        }
         console.log(`AW189: Electrical System ${this.isElectricalOn ? 'ON' : 'OFF'}`);
     }
 
     toggleFuelPump() {
         this.isFuelPumpOn = !this.isFuelPumpOn;
+        if (this.isFuelPumpOn && this.soundManager) {
+            this.soundManager.playFuelPumpPrimeSound();
+        }
         console.log(`AW189: Fuel Pump ${this.isFuelPumpOn ? 'ON' : 'OFF'}`);
         if (this.isFuelPumpOn) {
             this.fuelStarvationTimer = 0.0;
@@ -108,11 +115,17 @@ export class HelicopterPlayer {
         if (this.targetEnginePower > 0) {
             this.targetEnginePower = 0.0;
             this.isEngineRunning = false;
+            if (this.soundManager) {
+                this.soundManager.stopHelicopterEngine();
+            }
             console.log("AW189: Engine fuel cutoff engaged.");
         } else {
             this.targetEnginePower = 1.0;
             this.isEngineRunning = true;
             this.fuelStarvationTimer = 0.0;
+            if (this.soundManager) {
+                this.soundManager.startHelicopterEngine();
+            }
             console.log("AW189: Engines igniting. Spooling up...");
             
             for (let name in this.actions) {
@@ -146,7 +159,12 @@ export class HelicopterPlayer {
         gearAction.clampWhenFinished = true;
         gearAction.play();
         
-        this.isGearUp = !this.isGearUp;
+        const willBeGearUp = !this.isGearUp;
+        if (this.soundManager) {
+            this.soundManager.playLandingGearSound(willBeGearUp);
+        }
+
+        this.isGearUp = willBeGearUp;
         console.log(`Landing Gear ${this.isGearUp ? 'Retracting' : 'Deploying'}`);
     }
 
@@ -167,6 +185,9 @@ export class HelicopterPlayer {
             if (this.fuelStarvationTimer >= 5.0) { 
                 this.targetEnginePower = 0.0;
                 this.isEngineRunning = false;
+                if (this.soundManager) {
+                    this.soundManager.stopHelicopterEngine();
+                }
                 console.log("AW189: Engines spooling down due to fuel starvation / pump off.");
             }
         } else if (this.isFuelPumpOn && this.fuelKg > 0 && this.isEngineRunning) {
@@ -201,6 +222,9 @@ export class HelicopterPlayer {
             if (this.fuelKg <= 0 && this.targetEnginePower > 0) {
                 this.targetEnginePower = 0.0;
                 this.isEngineRunning = false;
+                if (this.soundManager) {
+                    this.soundManager.stopHelicopterEngine();
+                }
                 console.log("AW189: Engines shutdown - Out of Fuel!");
             }
         }
@@ -219,6 +243,11 @@ export class HelicopterPlayer {
             if (Math.abs(this.targetEnginePower - this.enginePower) < 0.001) {
                 this.enginePower = this.targetEnginePower;
             }
+        }
+
+        // Update continuous engine audio pitch/filter modulation based on power and airspeed
+        if (this.soundManager && this.isEngineRunning) {
+            this.soundManager.updateHelicopterAudio(this.enginePower, this.currentMoveSpeed);
         }
 
         for (let name in this.actions) {

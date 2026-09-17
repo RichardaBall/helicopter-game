@@ -4,10 +4,12 @@ import { setupScene } from './sceneSetup.js';
 import { WeatherSystem } from './weather.js';
 import { InputManager } from './inputManager.js';
 import { HelicopterPlayer } from './player.js';
+import { SoundManager } from './SoundManager.js';
 
 const { scene, camera, renderer, water, sunLight, ambientLight } = setupScene();
 const weatherSystem = new WeatherSystem();
 const inputManager = new InputManager();
+const soundManager = new SoundManager();
 const clock = new THREE.Clock();
 
 let helicopterPlayer = null;
@@ -99,7 +101,7 @@ loader.load('helicopter.glb', (gltfHeli) => {
     });
 
     const mixer = new THREE.AnimationMixer(model);
-    helicopterPlayer = new HelicopterPlayer(model, gltfHeli.animations, mixer);
+    helicopterPlayer = new HelicopterPlayer(model, gltfHeli.animations, mixer, soundManager);
 }, undefined, (error) => {
     console.error("Helicopter model failed to load:", error);
 });
