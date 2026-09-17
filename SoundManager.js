@@ -238,7 +238,7 @@ export class SoundManager {
         this.turbineOsc.frequency.setValueAtTime(400, now);
 
         this.turbineGain = this.audioCtx.createGain();
-        this.turbineGain.gain.setValueAtTime(0.0125, now); // Halved again from 0.025 to 0.0125
+        this.turbineGain.gain.setValueAtTime(0.00625, now); // Halved again from 0.0125 to 0.00625
 
         this.turbineOsc.connect(this.turbineGain);
 
@@ -353,7 +353,7 @@ export class SoundManager {
 
         this.rainGainNode = this.audioCtx.createGain();
         this.rainGainNode.gain.setValueAtTime(0.001, now);
-        this.rainGainNode.gain.linearRampToValueAtTime(0.08, now + 1.0);
+        this.rainGainNode.gain.linearRampToValueAtTime(0.04, now + 1.0); // Halved again from 0.08 to 0.04
 
         this.rainNoiseNode.connect(this.rainFilterNode);
         this.rainFilterNode.connect(this.rainGainNode);
