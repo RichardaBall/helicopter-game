@@ -58,6 +58,7 @@ export class HelicopterPlayer {
         this.helipadAltitude = 37.85;
         this.seaLevel = 0.0;
         this.landingHeightOffset = 0.9; 
+        this.maxCeilingFeet = 400.0;
 
         this.wasOnGround = true;
     }
@@ -340,10 +341,20 @@ export class HelicopterPlayer {
         }
 
         let newY = this.model.position.y + (this.currentAltitudeSpeed * delta);
+        
+        // Ground Collision Check
         if (newY <= activeGroundLevel) {
             newY = activeGroundLevel;
             this.currentAltitudeSpeed = 0;
         }
+
+        // Maximum Ceiling Check (400 ft converted to meters)
+        const maxCeilingMeters = this.maxCeilingFeet / 3.28084;
+        if (newY >= maxCeilingMeters) {
+            newY = maxCeilingMeters;
+            this.currentAltitudeSpeed = 0;
+        }
+
         this.model.position.y = newY;
         this.wasOnGround = isOnGround;
     }
