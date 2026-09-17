@@ -25,3 +25,4 @@ A 3D helicopter flight game built using Three.js, WebGL, and modular ES JavaScri
 3. **Preserve Existing Features**: Do NOT remove or refactor unmentioned game objects, lights, controls, shadow mechanics, or camera lerp systems unless explicitly instructed.
 4. **Maintain Code Cleanliness**: Keep code well-organized, clean, and commented to prevent codebase degradation over time.
 5. **Ask for Missing Code**: If a requested feature requires modifying an existing file and I have not provided that file in the chat, ask me to paste it before generating updated code.
+6. **Scope Isolation & Zero Unrequested Changes**: Strictly no unprompted edits to working code, key bindings, or mechanics. If a change impacts outside systems, you must explicitly notify me of the side effects before generating code.
