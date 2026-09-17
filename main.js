@@ -21,6 +21,56 @@ let heliShadow = null;
 
 const loader = new GLTFLoader();
 
+// Load Oil Rig and attach permanent, always-on lights
+loader.load('oil_rig.glb', (gltfRig) => {
+    const oilRig = gltfRig.scene;
+    oilRig.position.set(30, -0.95, 0);
+    scene.add(oilRig);
+    
+    const oilRigLightsGroup = new THREE.Group();
+
+    // Precise local coordinates for green helipad lights and red structure lights
+    const rigLightsData = [
+        // Green Helipad Lights (8)
+        { color: 'green', x: 7.009, y: 39.222, z: -78.055 },
+        { color: 'green', x: 6.568, y: 39.222, z: -57.216 },
+        { color: 'green', x: -2.947, y: 39.222, z: -66.970 },
+        { color: 'green', x: 15.657, y: 39.222, z: -67.448 },
+        { color: 'green', x: -0.368, y: 39.222, z: -74.972 },
+        { color: 'green', x: 13.818, y: 39.222, z: -73.807 },
+        { color: 'green', x: -0.010, y: 39.222, z: -60.168 },
+        { color: 'green', x: 13.153, y: 39.222, z: -60.558 },
+        // Red Structure Lights (8)
+        { color: 'red', x: 25.582, y: 48.205, z: -43.798 },
+        { color: 'red', x: 25.526, y: 48.352, z: 37.618 },
+        { color: 'red', x: 11.589, y: 70.388, z: -27.450 },
+        { color: 'red', x: -42.358, y: 149.909, z: -31.228 },
+        { color: 'red', x: -38.197, y: 89.702, z: 9.911 },
+        { color: 'red', x: -47.206, y: 108.221, z: 58.016 },
+        { color: 'red', x: -61.006, y: 48.168, z: 37.376 },
+        { color: 'red', x: -60.624, y: 48.169, z: -43.698 }
+    ];
+
+    rigLightsData.forEach(data => {
+        const isGreen = data.color === 'green';
+        const colorHex = isGreen ? 0x00ff00 : 0xff0000;
+        
+        const pointLight = new THREE.PointLight(colorHex, isGreen ? 2.0 : 2.5, 12);
+        pointLight.position.set(data.x, data.y, data.z);
+        oilRigLightsGroup.add(pointLight);
+        
+        const bulbMat = new THREE.MeshBasicMaterial({ color: colorHex });
+        const bulbGeo = new THREE.SphereGeometry(isGreen ? 0.3 : 0.45, 8, 8);
+        const bulbMesh = new THREE.Mesh(bulbGeo, bulbMat);
+        bulbMesh.position.set(data.x, data.y, data.z);
+        oilRigLightsGroup.add(bulbMesh);
+    });
+
+    oilRig.add(oilRigLightsGroup);
+}, undefined, (error) => {
+    console.error("Oil rig model failed to load:", error);
+});
+
 loader.load('helicopter.glb', (gltfHeli) => {
     const model = gltfHeli.scene;
     model.position.set(36.80, 37.85, -65.46);
@@ -178,7 +228,6 @@ function animate() {
         console.error("Weather system update error:", err);
     }
 
-    // Update rain audio based on active weather state
     if (soundManager) {
         soundManager.updateRainAudio(weatherData);
     }

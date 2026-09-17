@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Water } from 'three/addons/objects/Water.js';
 
 export function setupScene() {
@@ -37,14 +36,6 @@ export function setupScene() {
     water.rotation.x = -Math.PI / 2;
     water.position.y = -2.0;
     scene.add(water);
-
-    // Load Environment (Oil Rig)
-    const loader = new GLTFLoader();
-    loader.load('oil_rig.glb', (gltf) => {
-        const oilRigModel = gltf.scene;
-        oilRigModel.position.set(30, -0.95, 0); 
-        scene.add(oilRigModel);
-    });
 
     // Handle window resizing
     window.addEventListener('resize', () => {
