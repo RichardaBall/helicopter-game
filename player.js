@@ -250,7 +250,7 @@ export class HelicopterPlayer {
         
         // --- 50% Speed Reduction When Landing Gear Extended In Flight ---
         if (!this.isGearUp && !isOnGround) {
-            activeDragMultiplier += 1.0; // Doubling the drag factor halves the max speed limit (multiplier of 2.0x total drag)
+            activeDragMultiplier += 1.0;
         }
 
         let activeLiftMultiplier = weatherData && weatherData.effects ? weatherData.effects.liftMultiplier : 1.0;
@@ -303,10 +303,11 @@ export class HelicopterPlayer {
             this.model.rotation.y += this.currentTurnSpeed * delta;
         }
 
+        // Reduced wind displacement impact factor from 1.5 to 0.4 for smooth, controllable flight
         if (weatherData && weatherData.wind && !isOnGround) {
             const windImpactFactor = (this.baselineMassKg / currentMass) * delta;
-            this.model.position.x += weatherData.wind.x * windImpactFactor * 1.5;
-            this.model.position.z += weatherData.wind.z * windImpactFactor * 1.5;
+            this.model.position.x += weatherData.wind.x * windImpactFactor * 0.4;
+            this.model.position.z += weatherData.wind.z * windImpactFactor * 0.4;
         }
 
         let newY = this.model.position.y + (this.currentAltitudeSpeed * delta);
