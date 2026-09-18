@@ -4,7 +4,7 @@ export class Kneeboard {
         this.playerRef = null;
         this.navRadioRef = null;
         this.currentPage = 0;
-        this.totalPages = 3;
+        this.totalPages = 4;
         this.createElement();
         this.initListeners();
     }
@@ -179,16 +179,72 @@ export class Kneeboard {
             </div>
         `;
 
+        // Page 4: Aviation Chart & Nav Frequencies (Rig Alpha set to 210.0 kHz)
+        this.page4El = document.createElement('div');
+        this.page4El.style.cssText = this.getPageStyle(3);
+        this.page4El.innerHTML = `
+            <div style="font-weight: bold; text-align: center; text-decoration: underline; font-size: 11px; margin-bottom: 6px; color: #3a3525; letter-spacing: 0.5px;">AVIATION CHART</div>
+
+            <div style="position: relative; background: #cebfa0; border: 2px solid #4a4532; border-radius: 4px; padding: 5px; text-align: center; height: 130px; box-sizing: border-box; margin-bottom: 6px;">
+                <!-- Grid & Map SVG -->
+                <svg width="100%" height="100%" viewBox="0 0 200 115" style="display: block;">
+                    <!-- Grid Lines -->
+                    <line x1="50" y1="0" x2="50" y2="115" stroke="#b8a882" stroke-dasharray="2,2" stroke-width="1"/>
+                    <line x1="100" y1="0" x2="100" y2="115" stroke="#a3936e" stroke-width="1.5"/>
+                    <line x1="150" y1="0" x2="150" y2="115" stroke="#b8a882" stroke-dasharray="2,2" stroke-width="1"/>
+                    
+                    <line x1="0" y1="28" x2="200" y2="28" stroke="#b8a882" stroke-dasharray="2,2" stroke-width="1"/>
+                    <line x1="0" y1="57" x2="200" y2="57" stroke="#a3936e" stroke-width="1.5"/>
+                    <line x1="0" y1="85" x2="200" y2="85" stroke="#b8a882" stroke-dasharray="2,2" stroke-width="1"/>
+
+                    <!-- Compass / North Arrow -->
+                    <g transform="translate(175, 18)">
+                        <polygon points="0,-8 3,5 0,2 -3,5" fill="#4a4532"/>
+                        <text x="0" y="-10" font-size="6" font-weight="bold" fill="#4a4532" text-anchor="middle">N</text>
+                    </g>
+
+                    <!-- Oil Rig Alpha Marker (Center) -->
+                    <g transform="translate(100, 57)">
+                        <circle cx="0" cy="0" r="8" fill="none" stroke="#8b0000" stroke-width="1.5" stroke-dasharray="3,2"/>
+                        <rect x="-4" y="-4" width="8" height="8" fill="#4a4532" rx="1"/>
+                        <text x="0" y="-11" font-size="7" font-weight="bold" fill="#8b0000" text-anchor="middle">RIG ALPHA</text>
+                    </g>
+
+                    <!-- Future Landable Location Placeholder -->
+                    <g transform="translate(45, 85)">
+                        <circle cx="0" cy="0" r="5" fill="none" stroke="#555" stroke-width="1" stroke-dasharray="2,2"/>
+                        <circle cx="0" cy="0" r="1.5" fill="#666"/>
+                        <text x="0" y="10" font-size="5" fill="#666" text-anchor="middle">[FUTURE SITE]</text>
+                    </g>
+                </svg>
+            </div>
+
+            <div style="font-size: 9px;">
+                <div style="font-weight: bold; text-decoration: underline; margin-bottom: 3px; color: #3a3525;">NAV FREQUENCIES (NDB)</div>
+                <div style="background: #c9bf9b; border: 1px solid #4a4532; border-radius: 3px; padding: 5px;">
+                    <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #b5ac8c; padding-bottom: 3px; margin-bottom: 3px;">
+                        <span><strong>RIG ALPHA:</strong> (RGA)</span>
+                        <span><strong>210.0 kHz</strong></span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; color: #666;">
+                        <span><strong>FUTURE SITE:</strong> (---)</span>
+                        <span><strong>---.- kHz</strong></span>
+                    </div>
+                </div>
+            </div>
+        `;
+
         this.pagesWrapper.appendChild(this.page1El);
         this.pagesWrapper.appendChild(this.page2El);
         this.pagesWrapper.appendChild(this.page3El);
+        this.pagesWrapper.appendChild(this.page4El);
         this.container.appendChild(this.pagesWrapper);
 
         // Bottom Tab Bar
         const tabFooter = document.createElement('div');
         tabFooter.style.cssText = `
             display: flex;
-            gap: 4px;
+            gap: 3px;
             border-top: 2px dashed #6b634b;
             padding-top: 6px;
             margin-top: 6px;
@@ -209,9 +265,15 @@ export class Kneeboard {
         this.tab3Btn.style.cssText = this.getTabStyle(false);
         this.tab3Btn.addEventListener('click', () => this.switchPage(2));
 
+        this.tab4Btn = document.createElement('button');
+        this.tab4Btn.innerText = 'CHART';
+        this.tab4Btn.style.cssText = this.getTabStyle(false);
+        this.tab4Btn.addEventListener('click', () => this.switchPage(3));
+
         tabFooter.appendChild(this.tab1Btn);
         tabFooter.appendChild(this.tab2Btn);
         tabFooter.appendChild(this.tab3Btn);
+        tabFooter.appendChild(this.tab4Btn);
         this.container.appendChild(tabFooter);
 
         const styleTag = document.createElement('style');
@@ -271,9 +333,9 @@ export class Kneeboard {
             background: ${active ? '#4a4532' : '#b8b090'};
             color: ${active ? '#d8d0b0' : '#4a4532'};
             border: 1px solid #4a4532;
-            padding: 5px 2px;
+            padding: 5px 1px;
             font-family: inherit;
-            font-size: 9px;
+            font-size: 8px;
             font-weight: bold;
             border-radius: 3px;
             cursor: pointer;
@@ -290,6 +352,7 @@ export class Kneeboard {
                 if (e.code === 'Digit1') this.switchPage(0);
                 else if (e.code === 'Digit2') this.switchPage(1);
                 else if (e.code === 'Digit3') this.switchPage(2);
+                else if (e.code === 'Digit4') this.switchPage(3);
             }
         });
     }
@@ -298,8 +361,8 @@ export class Kneeboard {
         if (pageIndex === this.currentPage) return;
         this.currentPage = pageIndex;
 
-        const tabs = [this.tab1Btn, this.tab2Btn, this.tab3Btn];
-        const pages = [this.page1El, this.page2El, this.page3El];
+        const tabs = [this.tab1Btn, this.tab2Btn, this.tab3Btn, this.tab4Btn];
+        const pages = [this.page1El, this.page2El, this.page3El, this.page4El];
 
         tabs.forEach((tab, idx) => {
             tab.style.cssText = this.getTabStyle(idx === this.currentPage);
@@ -363,9 +426,6 @@ export class Kneeboard {
             if (fuelSlider) fuelSlider.disabled = !allowed;
             if (paxSlider) paxSlider.disabled = !allowed;
 
-            // Only update fuel display/slider if systems are OFF (allowed). 
-            // This prevents live fuel-burn updates from showing in the cockpit during flight.
-            // When shutdown occurs (allowed returns to true), it syncs back up to show updated remaining fuel.
             if (allowed && fuelSlider && document.activeElement !== fuelSlider && player.fuelKg !== undefined) {
                 fuelSlider.value = player.fuelKg;
                 const fuelVal = document.getElementById('kb-fuel-val');
