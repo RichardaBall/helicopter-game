@@ -9,6 +9,7 @@ import { NavRadio } from './navRadio.js';
 import { NavIndicator } from './navIndicator.js';
 import { Kneeboard } from './kneeboard.js';
 import { WindFarm } from './windFarm.js';
+import { SemiSub } from './semiSub.js';
 
 const { scene, camera, renderer, water, sunLight, ambientLight } = setupScene();
 const weatherSystem = new WeatherSystem();
@@ -16,6 +17,7 @@ const inputManager = new InputManager();
 const soundManager = new SoundManager();
 const kneeboard = new Kneeboard();
 const windFarm = new WindFarm(scene);
+const semiSub = new SemiSub(scene, camera, renderer);
 const clock = new THREE.Clock();
 
 let helicopterPlayer = null;
@@ -76,15 +78,6 @@ loader.load('oil_rig.glb', (gltfRig) => {
     oilRig.add(oilRigLightsGroup);
 }, undefined, (error) => {
     console.error("Oil rig model failed to load:", error);
-});
-
-// Load Semi-Submersible model at original scale, positioned further away
-loader.load('semisub.glb', (gltfSemiSub) => {
-    const semisub = gltfSemiSub.scene;
-    semisub.position.set(30, -0.95, 200);
-    scene.add(semisub);
-}, undefined, (error) => {
-    console.error("Semi-submersible model failed to load:", error);
 });
 
 loader.load('helicopter.glb', (gltfHeli) => {
@@ -199,9 +192,14 @@ function animate() {
         scene.add(weatherSystem.rainParticles);
     }
 
-    // Update all wind farm turbines (rotors and flashing lights)
+    // Update wind farm turbines
     if (windFarm) {
         windFarm.update(delta);
+    }
+
+    // Update semi-submersible module
+    if (semiSub) {
+        semiSub.update(delta);
     }
 
     if (helicopterPlayer && helicopterPlayer.model) {
