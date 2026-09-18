@@ -7,11 +7,13 @@ import { HelicopterPlayer } from './player.js';
 import { SoundManager } from './SoundManager.js';
 import { NavRadio } from './navRadio.js';
 import { NavIndicator } from './navIndicator.js';
+import { Kneeboard } from './kneeboard.js';
 
 const { scene, camera, renderer, water, sunLight, ambientLight } = setupScene();
 const weatherSystem = new WeatherSystem();
 const inputManager = new InputManager();
 const soundManager = new SoundManager();
+const kneeboard = new Kneeboard();
 const clock = new THREE.Clock();
 
 let helicopterPlayer = null;
@@ -24,16 +26,6 @@ let heliLightsGroup;
 let heliShadow = null;
 
 const loader = new GLTFLoader();
-
-// Wire up Fuel Test Slider UI element
-const fuelSlider = document.getElementById('fuel-slider');
-if (fuelSlider) {
-    fuelSlider.addEventListener('input', (e) => {
-        if (helicopterPlayer) {
-            helicopterPlayer.fuelKg = parseFloat(e.target.value);
-        }
-    });
-}
 
 // Load Oil Rig and attach permanent, always-on lights
 loader.load('oil_rig.glb', (gltfRig) => {
@@ -164,73 +156,13 @@ loader.load('helicopter.glb', (gltfHeli) => {
     const mixer = new THREE.AnimationMixer(model);
     helicopterPlayer = new HelicopterPlayer(model, gltfHeli.animations, mixer, soundManager);
 
-    // Initialize NDB Nav Radio system & 3D child-locked Indicator (Passing model)
+    // Initialize NDB Nav Radio system & 3D child-locked Indicator
     const oilRigTargetPos = new THREE.Vector3(36.61, 39.22, -67.40);
     navRadio = new NavRadio(helicopterPlayer, oilRigTargetPos);
     navIndicator = new NavIndicator(helicopterPlayer, oilRigTargetPos, navRadio, scene, model);
 }, undefined, (error) => {
     console.error("Helicopter model failed to load:", error);
 });
-
-function updateHUD(player, weatherData) {
-    try {
-        const batteryEl = document.getElementById('hud-battery');
-        const fuelPumpEl = document.getElementById('hud-fuelpump');
-        const engineEl = document.getElementById('hud-engine');
-        const fuelQtyEl = document.getElementById('hud-fuelqty');
-        const fuelSliderEl = document.getElementById('fuel-slider');
-        const speedEl = document.getElementById('hud-speed');
-        const altitudeEl = document.getElementById('hud-altitude');
-        const weatherEl = document.getElementById('hud-weather');
-
-        if (player) {
-            if (batteryEl) {
-                batteryEl.innerText = player.isElectricalOn ? 'ON' : 'OFF';
-                batteryEl.className = player.isElectricalOn ? 'status-on' : 'status-off';
-            }
-
-            if (fuelPumpEl) {
-                fuelPumpEl.innerText = player.isFuelPumpOn ? 'ON' : 'OFF';
-                fuelPumpEl.className = player.isFuelPumpOn ? 'status-on' : 'status-off';
-            }
-
-            if (engineEl) {
-                if (player.enginePower > 0.01) {
-                    engineEl.innerText = `RUNNING (${Math.round(player.enginePower * 100)}%)`;
-                    engineEl.className = 'status-on';
-                } else {
-                    engineEl.innerText = 'STOPPED';
-                    engineEl.className = 'status-off';
-                }
-            }
-
-            if (fuelQtyEl) {
-                fuelQtyEl.innerText = Math.max(0, Math.round(player.fuelKg || 0));
-            }
-
-            if (fuelSliderEl && document.activeElement !== fuelSliderEl) {
-                fuelSliderEl.value = Math.max(0, Math.min(1000, player.fuelKg || 0));
-            }
-
-            if (speedEl) {
-                const speedKnots = Math.round(Math.abs(player.currentMoveSpeed || 0) * 1.94384);
-                speedEl.innerText = speedKnots;
-            }
-
-            if (altitudeEl && player.model) {
-                const altFt = Math.round(player.model.position.y * 3.28084);
-                altitudeEl.innerText = altFt;
-            }
-        }
-
-        if (weatherData && weatherEl) {
-            const todTag = weatherData.isNight ? ' (NIGHT)' : ' (DAY)';
-            weatherEl.innerText = `${(weatherData.weatherType || 'FINE').toUpperCase()}${todTag}`;
-        }
-    } catch (e) {
-        // Suppress non-critical HUD update errors
-    }
-}
 
 function animate() {
     requestAnimationFrame(animate);
@@ -318,7 +250,10 @@ function animate() {
         navIndicator.update(camera, helicopterPlayer.model);
     }
 
-    updateHUD(helicopterPlayer, weatherData);
+    // Update Pilot Kneeboard
+    if (kneeboard) {
+        kneeboard.update(helicopterPlayer, weatherData);
+    }
 
     if (renderer && scene && camera) {
         renderer.render(scene, camera);
