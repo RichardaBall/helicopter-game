@@ -179,7 +179,7 @@ export class Kneeboard {
             </div>
         `;
 
-        // Page 4: Aviation Chart & Nav Frequencies (Rig Alpha set to 210.0 kHz)
+        // Page 4: Aviation Chart & Nav Frequencies (Rig Alpha + North-East Wind Farm Row)
         this.page4El = document.createElement('div');
         this.page4El.style.cssText = this.getPageStyle(3);
         this.page4El.innerHTML = `
@@ -210,25 +210,25 @@ export class Kneeboard {
                         <text x="0" y="-11" font-size="7" font-weight="bold" fill="#8b0000" text-anchor="middle">RIG ALPHA</text>
                     </g>
 
-                    <!-- Future Landable Location Placeholder -->
-                    <g transform="translate(45, 85)">
-                        <circle cx="0" cy="0" r="5" fill="none" stroke="#555" stroke-width="1" stroke-dasharray="2,2"/>
-                        <circle cx="0" cy="0" r="1.5" fill="#666"/>
-                        <text x="0" y="10" font-size="5" fill="#666" text-anchor="middle">[FUTURE SITE]</text>
+                    <!-- Wind Farm Row Marker (North-East (~1 min flight away)) -->
+                    <g transform="translate(140, 32)">
+                        <circle cx="0" cy="0" r="6" fill="none" stroke="#c05000" stroke-width="1.2" stroke-dasharray="2,1"/>
+                        <circle cx="0" cy="0" r="2" fill="#c05000"/>
+                        <text x="0" y="9" font-size="5" font-weight="bold" fill="#c05000" text-anchor="middle">WIND FARM</text>
                     </g>
                 </svg>
             </div>
 
             <div style="font-size: 9px;">
-                <div style="font-weight: bold; text-decoration: underline; margin-bottom: 3px; color: #3a3525;">NAV FREQUENCIES (NDB)</div>
+                <div style="font-weight: bold; text-decoration: underline; margin-bottom: 3px; color: #3a3525;">NAV & OBSTRUCTION HAZARDS</div>
                 <div style="background: #c9bf9b; border: 1px solid #4a4532; border-radius: 3px; padding: 5px;">
                     <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #b5ac8c; padding-bottom: 3px; margin-bottom: 3px;">
-                        <span><strong>RIG ALPHA:</strong> (RGA)</span>
+                        <span><strong>RIG ALPHA NDB:</strong> (RGA)</span>
                         <span><strong>210.0 kHz</strong></span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; color: #666;">
-                        <span><strong>FUTURE SITE:</strong> (---)</span>
-                        <span><strong>---.- kHz</strong></span>
+                    <div style="display: flex; justify-content: space-between; color: #802000;">
+                        <span><strong>WIND FARM (NE):</strong> 3x WTG Row</span>
+                        <span><strong>OBSTACLE WARNING</strong></span>
                     </div>
                 </div>
             </div>

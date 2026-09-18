@@ -8,12 +8,14 @@ import { SoundManager } from './SoundManager.js';
 import { NavRadio } from './navRadio.js';
 import { NavIndicator } from './navIndicator.js';
 import { Kneeboard } from './kneeboard.js';
+import { WindFarm } from './windFarm.js';
 
 const { scene, camera, renderer, water, sunLight, ambientLight } = setupScene();
 const weatherSystem = new WeatherSystem();
 const inputManager = new InputManager();
 const soundManager = new SoundManager();
 const kneeboard = new Kneeboard();
+const windFarm = new WindFarm(scene);
 const clock = new THREE.Clock();
 
 let helicopterPlayer = null;
@@ -186,6 +188,11 @@ function animate() {
 
     if (weatherSystem && weatherSystem.rainParticles && !scene.getObjectById(weatherSystem.rainParticles.id)) {
         scene.add(weatherSystem.rainParticles);
+    }
+
+    // Update all wind farm turbines (rotors and flashing lights)
+    if (windFarm) {
+        windFarm.update(delta);
     }
 
     if (helicopterPlayer && helicopterPlayer.model) {
