@@ -5,6 +5,8 @@ import { WeatherSystem } from './weather.js';
 import { InputManager } from './inputManager.js';
 import { HelicopterPlayer } from './player.js';
 import { SoundManager } from './SoundManager.js';
+import { NavRadio } from './navRadio.js';
+import { NavIndicator } from './navIndicator.js';
 
 const { scene, camera, renderer, water, sunLight, ambientLight } = setupScene();
 const weatherSystem = new WeatherSystem();
@@ -13,6 +15,8 @@ const soundManager = new SoundManager();
 const clock = new THREE.Clock();
 
 let helicopterPlayer = null;
+let navRadio = null;
+let navIndicator = null;
 
 let redLight, greenLight, strobeLight, landingLight, cockpitLight;
 let redBulb, greenBulb, strobeBulb;
@@ -159,6 +163,11 @@ loader.load('helicopter.glb', (gltfHeli) => {
 
     const mixer = new THREE.AnimationMixer(model);
     helicopterPlayer = new HelicopterPlayer(model, gltfHeli.animations, mixer, soundManager);
+
+    // Initialize NDB Nav Radio system & 3D child-locked Indicator (Passing model)
+    const oilRigTargetPos = new THREE.Vector3(36.61, 39.22, -67.40);
+    navRadio = new NavRadio(helicopterPlayer, oilRigTargetPos);
+    navIndicator = new NavIndicator(helicopterPlayer, oilRigTargetPos, navRadio, scene, model);
 }, undefined, (error) => {
     console.error("Helicopter model failed to load:", error);
 });
@@ -299,6 +308,14 @@ function animate() {
             camera.position.lerp(targetCameraPos, 0.1);
             camera.lookAt(helicopterPlayer.model.position);
         }
+    }
+
+    // Update NDB Nav Radio system and locked 3D arrow indicator
+    if (navRadio && helicopterPlayer && helicopterPlayer.model && camera) {
+        navRadio.update(camera, helicopterPlayer.model);
+    }
+    if (navIndicator && helicopterPlayer && helicopterPlayer.model && camera) {
+        navIndicator.update(camera, helicopterPlayer.model);
     }
 
     updateHUD(helicopterPlayer, weatherData);
