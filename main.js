@@ -78,6 +78,15 @@ loader.load('oil_rig.glb', (gltfRig) => {
     console.error("Oil rig model failed to load:", error);
 });
 
+// Load Semi-Submersible model at original scale, positioned further away
+loader.load('semisub.glb', (gltfSemiSub) => {
+    const semisub = gltfSemiSub.scene;
+    semisub.position.set(30, -0.95, 200);
+    scene.add(semisub);
+}, undefined, (error) => {
+    console.error("Semi-submersible model failed to load:", error);
+});
+
 loader.load('helicopter.glb', (gltfHeli) => {
     const model = gltfHeli.scene;
     model.position.set(36.80, 37.85, -65.46);
